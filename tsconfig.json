@@ -1,8 +1,13 @@
 {
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
-    "types": ["jest"],
+    "types": ["jest"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "src/screens/LoginScreen.js",
+    "src/screens/SignupScreen.js"
+  ],
   "exclude": ["**/node_modules", "**/Pods"]
 }

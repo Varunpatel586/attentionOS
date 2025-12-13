@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import HomeScreen from '../screens/HomeScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
+import AppTabs from './AppTabs';
 
 const RootNavigator = () => {
   const [initializing, setInitializing] = useState(true);
@@ -28,7 +28,7 @@ const RootNavigator = () => {
     );
   }
 
-  return <HomeScreen />;
+  return <AppTabs />;
 };
 
 export default RootNavigator;

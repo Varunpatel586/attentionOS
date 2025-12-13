@@ -1,11 +1,15 @@
 import React from 'react';
 import { StyleSheet, View, Text, ScrollView, Button } from 'react-native';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import BottomNavbar from '../components/BottomNavbar';
 import auth from '@react-native-firebase/auth';
 
 const HomeScreen = () => {
   return (
-    <View style={styles.container}>
+    <SafeAreaProvider style={styles.container}>
       <ScrollView>
         <Button title="Logout" onPress={() => auth().signOut()} />
         {/* Greeting */}
@@ -86,7 +90,7 @@ const HomeScreen = () => {
       </ScrollView>
       {/* Bottom Navbar */}
       <BottomNavbar />
-    </View>
+    </SafeAreaProvider>
   );
 };
 
