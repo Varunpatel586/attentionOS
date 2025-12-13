@@ -1,81 +1,89 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Button } from 'react-native';
 import BottomNavbar from '../components/BottomNavbar';
+import auth from '@react-native-firebase/auth';
 
 const HomeScreen = () => {
   return (
     <View style={styles.container}>
-      {/* Greeting */}
-      <View style={styles.topTextContainer}>
-        <Text style={styles.topText}>Good evening, Harsheel!</Text>
-      </View>
-
-      {/* Time cards */}
-      <View style={styles.timeContainer}>
-        <View style={[styles.card, styles.darkCard]}>
-          <Text style={[styles.titleText, styles.darkText]}>2h 28m</Text>
-          <Text style={[styles.subText, styles.darkSubText]}>Focusing</Text>
+      <ScrollView>
+        <Button title="Logout" onPress={() => auth().signOut()} />
+        {/* Greeting */}
+        <View style={styles.topTextContainer}>
+          <Text style={styles.topText}>Good evening, Harsheel!</Text>
         </View>
 
-        <View style={[styles.card, styles.lightCard]}>
-          <Text style={[styles.titleText, styles.lightText]}>1h 40m</Text>
-          <Text style={[styles.subText, styles.lightSubText]}>Scrolling</Text>
-        </View>
-      </View>
+        {/* Time cards */}
+        <View style={styles.timeContainer}>
+          <View style={[styles.card, styles.darkCard]}>
+            <Text style={[styles.titleText, styles.darkText]}>2h 28m</Text>
+            <Text style={[styles.subText, styles.darkSubText]}>Focusing</Text>
+          </View>
 
-      {/* Big Three title */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Today’s Big Three</Text>
-      </View>
-
-      {/* Big Three cards */}
-      <View style={styles.bigThreeContainer}>
-        <View style={[styles.bigThreeCard, styles.lightCard]}>
-          <Text style={[styles.bigThreeTitle, styles.lightText]}>
-            Task Title
-          </Text>
-          <Text style={[styles.bigThreeSubText, styles.lightSubText]}>
-            Study
-          </Text>
+          <View style={[styles.card, styles.lightCard]}>
+            <Text style={[styles.titleText, styles.lightText]}>1h 40m</Text>
+            <Text style={[styles.subText, styles.lightSubText]}>Scrolling</Text>
+          </View>
         </View>
 
-        <View style={[styles.bigThreeCard, styles.darkCard]}>
-          <Text style={[styles.bigThreeTitle, styles.darkText]}>
-            Task Title
-          </Text>
-          <Text style={[styles.bigThreeSubText, styles.darkSubText]}>Work</Text>
+        {/* Big Three title */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Today’s Big Three</Text>
         </View>
 
-        <View style={[styles.bigThreeCard, styles.lightCard]}>
-          <Text style={[styles.bigThreeTitle, styles.lightText]}>
-            Task Title
-          </Text>
-          <Text style={[styles.bigThreeSubText, styles.lightSubText]}>Gym</Text>
-        </View>
-      </View>
+        {/* Big Three cards */}
+        <View style={styles.bigThreeContainer}>
+          <View style={[styles.bigThreeCard, styles.lightCard]}>
+            <Text style={[styles.bigThreeTitle, styles.lightText]}>
+              Task Title
+            </Text>
+            <Text style={[styles.bigThreeSubText, styles.lightSubText]}>
+              Study
+            </Text>
+          </View>
 
-      {/* Today’s List title */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Today’s List</Text>
-      </View>
+          <View style={[styles.bigThreeCard, styles.darkCard]}>
+            <Text style={[styles.bigThreeTitle, styles.darkText]}>
+              Task Title
+            </Text>
+            <Text style={[styles.bigThreeSubText, styles.darkSubText]}>
+              Work
+            </Text>
+          </View>
 
-      {/* Today’s List container */}
-      <View style={styles.todoContainer}>
-        <View style={styles.todoItem}>
-          <View style={styles.todoCircle} />
-          <Text style={styles.todoText}>Task1</Text>
+          <View style={[styles.bigThreeCard, styles.lightCard]}>
+            <Text style={[styles.bigThreeTitle, styles.lightText]}>
+              Task Title
+            </Text>
+            <Text style={[styles.bigThreeSubText, styles.lightSubText]}>
+              Gym
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.todoItem}>
-          <View style={styles.todoCircle} />
-          <Text style={styles.todoText}>Task2</Text>
+        {/* Today’s List title */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Today’s List</Text>
         </View>
 
-        <View style={styles.todoItem}>
-          <View style={styles.todoCircle} />
-          <Text style={styles.todoText}>Task3</Text>
+        {/* Today’s List container */}
+        <View style={styles.todoContainer}>
+          <View style={styles.todoItem}>
+            <View style={styles.todoCircle} />
+            <Text style={styles.todoText}>Task1</Text>
+          </View>
+
+          <View style={styles.todoItem}>
+            <View style={styles.todoCircle} />
+            <Text style={styles.todoText}>Task2</Text>
+          </View>
+
+          <View style={styles.todoItem}>
+            <View style={styles.todoCircle} />
+            <Text style={styles.todoText}>Task3</Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
       {/* Bottom Navbar */}
       <BottomNavbar />
     </View>
@@ -108,7 +116,7 @@ const styles = StyleSheet.create({
   },
 
   sectionHeader: {
-    marginTop: 24,
+    marginTop: 10,
     marginLeft: 20,
   },
 

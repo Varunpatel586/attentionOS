@@ -1,14 +1,14 @@
-import HomeScreen from './screens/HomeScreen';
-import { StatusBar, StyleSheet, useColorScheme, View , Text} from 'react-native';
+import React, { useEffect } from 'react';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import RootNavigator from './navigation/RootNavigator';
 
 function App() {
   return (
     <SafeAreaProvider>
-      <HomeScreen />
+      <RootNavigator />
     </SafeAreaProvider>
   );
 }
