@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import AppTabs from './AppTabs';
+import SplashScreen from '../screens/SplashScreen';
 
 const RootNavigator = () => {
   const [initializing, setInitializing] = useState(true);
@@ -12,13 +14,13 @@ const RootNavigator = () => {
   useEffect(() => {
     const unsubscribe = auth().onAuthStateChanged(u => {
       setUser(u);
-      if (initializing) setInitializing(false);
+      setInitializing(false);
     });
 
     return unsubscribe;
-  }, [initializing]);
+  }, []);
 
-  if (initializing) return null;
+  if (initializing) return <SplashScreen />;
 
   if (!user) {
     return authMode === 'login' ? (
