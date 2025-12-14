@@ -1,31 +1,95 @@
-import React from 'react';
-import { StyleSheet, View, Text, ScrollView, Button } from 'react-native';
+import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  Button,
+  TouchableOpacity,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNavbar from '../components/BottomNavbar';
 import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const HomeScreen = () => {
+  const user = auth().currentUser;
+
+  const [focusTime, setFocusTime] = useState(0);
+  const [scrollTime, setScrollTime] = useState(0);
+  const [bigThree, setBigThree] = useState([]);
+  const [todos, setTodos] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribeUser = firestore()
+      .collection('users')
+      .doc(user.uid)
+      .onSnapshot(doc => {
+        const data = doc.data();
+        if (data) {
+          setFocusTime(data.todayFocusTime || 0);
+          setScrollTime(data.todayScrollTime || 0);
+        }
+      });
+
+    const unsubscribeBigThree = firestore()
+      .collection('users')
+      .doc(user.uid)
+      .collection('bigThree')
+      .onSnapshot(snapshot => {
+        const tasks = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setBigThree(tasks);
+      });
+
+    const unsubscribeTodos = firestore()
+      .collection('users')
+      .doc(user.uid)
+      .collection('todos')
+      .onSnapshot(snapshot => {
+        const list = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setTodos(list);
+      });
+
+    return () => {
+      unsubscribeUser();
+      unsubscribeBigThree();
+      unsubscribeTodos();
+    };
+  }, []);
+
   return (
-    <SafeAreaProvider style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView>
         <Button title="Logout" onPress={() => auth().signOut()} />
         {/* Greeting */}
         <View style={styles.topTextContainer}>
-          <Text style={styles.topText}>Good evening, Harsheel!</Text>
+          <Text style={styles.topText}>Evening, Harsheel!</Text>
         </View>
 
         {/* Time cards */}
         <View style={styles.timeContainer}>
           <View style={[styles.card, styles.darkCard]}>
-            <Text style={[styles.titleText, styles.darkText]}>2h 28m</Text>
+            <Text style={[styles.titleText, styles.darkText]}>
+              {Math.floor(focusTime / 3600)}h{' '}
+              {Math.floor((focusTime % 3600) / 60)}m
+            </Text>
             <Text style={[styles.subText, styles.darkSubText]}>Focusing</Text>
           </View>
 
           <View style={[styles.card, styles.lightCard]}>
-            <Text style={[styles.titleText, styles.lightText]}>1h 40m</Text>
+            <Text style={[styles.titleText, styles.lightText]}>
+              {Math.floor(scrollTime / 3600)}h{' '}
+              {Math.floor((scrollTime % 3600) / 60)}m
+            </Text>
             <Text style={[styles.subText, styles.lightSubText]}>Scrolling</Text>
           </View>
         </View>
@@ -36,28 +100,44 @@ const HomeScreen = () => {
         </View>
 
         {/* Big Three cards */}
-        <View style={styles.bigThreeContainer}>
-          <View style={[styles.bigThreeCard, styles.lightCard]}>
+        <View style={styles.bigThreeRow}>
+          {/* Left card */}
+          <View style={[styles.bigThreeCardSmall, styles.lightCard]}>
+            <Ionicons name="book-outline" size={22} color="#000" />
             <Text style={[styles.bigThreeTitle, styles.lightText]}>
-              Task Title
+              Task title
             </Text>
             <Text style={[styles.bigThreeSubText, styles.lightSubText]}>
               Study
             </Text>
           </View>
 
-          <View style={[styles.bigThreeCard, styles.darkCard]}>
+          {/* Active middle card */}
+          <View style={[styles.bigThreeCardActive, styles.darkCard]}>
+            <Ionicons name="briefcase-outline" size={24} color="#FFF" />
+
             <Text style={[styles.bigThreeTitle, styles.darkText]}>
-              Task Title
+              Task title
             </Text>
             <Text style={[styles.bigThreeSubText, styles.darkSubText]}>
               Work
             </Text>
+
+            <View style={styles.bigThreeActions}>
+              <TouchableOpacity>
+                <Ionicons name="pause-outline" size={25} color="#FFF" />
+              </TouchableOpacity>
+              <TouchableOpacity>
+                <Ionicons name="close-outline" size={25} color="#FFF" />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={[styles.bigThreeCard, styles.lightCard]}>
+          {/* Right card */}
+          <View style={[styles.bigThreeCardSmall, styles.lightCard]}>
+            <Ionicons name="barbell-outline" size={22} color="#000" />
             <Text style={[styles.bigThreeTitle, styles.lightText]}>
-              Task Title
+              Task title
             </Text>
             <Text style={[styles.bigThreeSubText, styles.lightSubText]}>
               Gym
@@ -90,7 +170,7 @@ const HomeScreen = () => {
       </ScrollView>
       {/* Bottom Navbar */}
       <BottomNavbar />
-    </SafeAreaProvider>
+    </SafeAreaView>
   );
 };
 
@@ -101,14 +181,13 @@ const styles = StyleSheet.create({
   },
 
   topTextContainer: {
-    marginTop: 50,
     marginLeft: 20,
   },
 
   topText: {
     fontSize: 30,
-    fontWeight: 'bold',
     color: '#000',
+    fontWeight: '500',
     fontFamily: 'Poppins',
   },
 
@@ -125,15 +204,17 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 25,
+    fontWeight: '500',
+    fontFamily: 'Poppins',
+    fontStyle: 'bold',
     color: '#000',
   },
 
   card: {
     flex: 1,
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 28,
     height: 140,
     justifyContent: 'center',
   },
@@ -170,7 +251,8 @@ const styles = StyleSheet.create({
   },
 
   titleText: {
-    fontSize: 22,
+    fontSize: 28,
+    fontWeight: '400',
     textAlign: 'center',
     fontFamily: 'Poppins',
   },
@@ -183,7 +265,8 @@ const styles = StyleSheet.create({
 
   subText: {
     marginTop: 4,
-    fontSize: 14,
+    fontSize: 20,
+    fontWeight: '300',
     textAlign: 'center',
     fontFamily: 'Poppins',
   },
@@ -201,7 +284,7 @@ const styles = StyleSheet.create({
   },
 
   darkSubText: {
-    color: '#BFBFBF',
+    color: '#FFFFFF',
     fontFamily: 'Poppins',
   },
 
@@ -217,17 +300,18 @@ const styles = StyleSheet.create({
 
   bigThreeTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '500',
     textAlign: 'center',
     fontFamily: 'Poppins',
   },
 
   bigThreeSubText: {
-    marginTop: 8,
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: '400',
     textAlign: 'center',
     fontFamily: 'Poppins',
   },
+
   todoContainer: {
     backgroundColor: '#E9E5DC',
     marginHorizontal: 20,
@@ -244,18 +328,55 @@ const styles = StyleSheet.create({
   },
 
   todoCircle: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 20,
+    borderWidth: 2.5,
     borderColor: '#262626',
     marginRight: 12,
   },
 
   todoText: {
-    fontSize: 15,
+    fontSize: 18,
+    fontWeight: '500',
     fontFamily: 'Poppins',
+    fontStyle: 'medium',
     color: '#000',
+  },
+
+  bigThreeRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+    marginHorizontal: 20,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  bigThreeCardSmall: {
+    width: '30%',
+    height: 150,
+    padding: 13,
+    borderRadius: 16,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+
+  bigThreeCardActive: {
+    width: '34%',
+    height: 160,
+    padding: 18,
+    borderRadius: 18,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    elevation: 6,
+  },
+
+  bigThreeActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '80%',
+    marginLeft: 7,
+    marginTop: 12,
   },
 });
 

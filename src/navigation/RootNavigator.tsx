@@ -7,21 +7,32 @@ import AppTabs from './AppTabs';
 import SplashScreen from '../screens/SplashScreen';
 
 const RootNavigator = () => {
-  const [initializing, setInitializing] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
+  const [authInitializing, setAuthInitializing] = useState(true);
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
+  //Firebase auth listener
   useEffect(() => {
     const unsubscribe = auth().onAuthStateChanged(u => {
       setUser(u);
-      setInitializing(false);
+      setAuthInitializing(false);
     });
 
     return unsubscribe;
   }, []);
 
-  if (initializing) return <SplashScreen />;
+  //Splash screen
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
 
+  //Wait for Firebase auth state
+  if (authInitializing) {
+    return null; // optional: loader
+  }
+
+  //Auth screens
   if (!user) {
     return authMode === 'login' ? (
       <LoginScreen onSwitchToSignup={() => setAuthMode('signup')} />
@@ -30,6 +41,7 @@ const RootNavigator = () => {
     );
   }
 
+  // Logged-in app
   return <AppTabs />;
 };
 

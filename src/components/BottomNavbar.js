@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import auth from '@react-native-firebase/auth';
 
 const BottomNavbar = props => {
   const { state, navigation } = props;
@@ -48,10 +49,7 @@ const BottomNavbar = props => {
       </View>
 
       {/* Floating action button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => console.log('FAB pressed')}
-      >
+      <TouchableOpacity style={styles.fab} onPress={() => auth().signOut()}>
         <Ionicons name="create-outline" size={22} color="#FFF" />
       </TouchableOpacity>
     </View>

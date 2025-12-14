@@ -1,14 +1,11 @@
 import { View, Text, StyleSheet } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const TimerScreen = () => {
   return (
-    <SafeAreaProvider style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text>TimerScreen</Text>
-    </SafeAreaProvider>
+    </SafeAreaView>
   );
 };
 

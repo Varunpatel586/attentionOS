@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApp } from '@react-native-firebase/app';
 import {
   getAuth,
@@ -24,7 +24,7 @@ const LoginScreen = ({ onSwitchToSignup }) => {
   };
 
   return (
-    <View>
+    <SafeAreaView>
       <TextInput placeholder="Email" value={email} onChangeText={setEmail} />
       <TextInput
         placeholder="Password"
@@ -35,7 +35,7 @@ const LoginScreen = ({ onSwitchToSignup }) => {
       {error ? <Text>{error}</Text> : null}
       <Button title="Login" onPress={login} />
       <Button title="Create new account" onPress={onSwitchToSignup} />
-    </View>
+    </SafeAreaView>
   );
 };
 

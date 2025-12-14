@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text } from 'react-native';
-
 import { getApp } from '@react-native-firebase/app';
 import {
   getAuth,
@@ -12,6 +11,7 @@ import {
   setDoc,
   serverTimestamp,
 } from '@react-native-firebase/firestore';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const app = getApp();
 const auth = getAuth(app);
@@ -37,7 +37,7 @@ const SignupScreen = ({ onSwitchToLogin }) => {
   };
 
   return (
-    <View>
+    <SafeAreaView>
       <TextInput placeholder="Email" value={email} onChangeText={setEmail} />
       <TextInput
         placeholder="Password"
@@ -51,7 +51,7 @@ const SignupScreen = ({ onSwitchToLogin }) => {
         title="Already have an account? Login"
         onPress={onSwitchToLogin}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
