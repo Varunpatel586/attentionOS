@@ -21,6 +21,8 @@ const HomeScreen = () => {
   const [scrollTime, setScrollTime] = useState(0);
   const [bigThree, setBigThree] = useState([]);
   const [todos, setTodos] = useState([]);
+  const [focusedCard, setFocusedCard] = useState(null);
+  const [activeMode, setActiveMode] = useState('focus');
 
   useEffect(() => {
     if (!user) return;
@@ -34,6 +36,7 @@ const HomeScreen = () => {
           setUserName(data.name || '');
           setFocusTime(data.todayFocusTime || 0);
           setScrollTime(data.todayScrollTime || 0);
+          setActiveMode(data.activeMode || 'focus');
         }
       });
 
@@ -77,10 +80,53 @@ const HomeScreen = () => {
     inactiveTasks[1] || null,
   ];
 
+  //For toggling todo completion
+  const toggleTodo = async todo => {
+    if (!user) return;
+
+    await firestore()
+      .collection('users')
+      .doc(user.uid)
+      .collection('todos')
+      .doc(todo.id)
+      .update({
+        completed: !todo.completed,
+      });
+  };
+
+  const switchActiveMode = async mode => {
+    if (!user) return;
+
+    await firestore().collection('users').doc(user.uid).update({
+      activeMode: mode,
+    });
+  };
+
+  const switchActiveBigThree = async clickedTask => {
+    if (!user) return;
+
+    const batch = firestore().batch();
+    const baseRef = firestore()
+      .collection('users')
+      .doc(user.uid)
+      .collection('bigThree');
+
+    // deactivate all
+    bigThree.forEach(task => {
+      const ref = baseRef.doc(task.id);
+      batch.update(ref, { active: false });
+    });
+
+    // activate clicked
+    batch.update(baseRef.doc(clickedTask.id), { active: true });
+
+    await batch.commit();
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView>
-        <Button title="Logout" onPress={() => auth().signOut()} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* <Button title="Logout" onPress={() => auth().signOut()} /> */}
         {/* Greeting */}
         <View style={styles.topTextContainer}>
           <Text style={styles.topText}>
@@ -89,22 +135,75 @@ const HomeScreen = () => {
         </View>
 
         {/* Time cards */}
-        <View style={styles.timeContainer}>
-          <View style={[styles.card, styles.darkCard]}>
-            <Text style={[styles.titleText, styles.darkText]}>
-              {Math.floor(focusTime / 3600)}h{' '}
-              {Math.floor((focusTime % 3600) / 60)}m
-            </Text>
-            <Text style={[styles.subText, styles.darkSubText]}>Focusing</Text>
-          </View>
 
-          <View style={[styles.card, styles.lightCard]}>
-            <Text style={[styles.titleText, styles.lightText]}>
-              {Math.floor(scrollTime / 3600)}h{' '}
-              {Math.floor((scrollTime % 3600) / 60)}m
-            </Text>
-            <Text style={[styles.subText, styles.lightSubText]}>Scrolling</Text>
-          </View>
+        <View style={styles.timeContainer}>
+          {/* Focus card */}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => switchActiveMode('focus')}
+            style={{ flex: 1 }}
+          >
+            <View
+              style={[
+                styles.card,
+                activeMode === 'focus' ? styles.darkCard : styles.lightCard,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.titleText,
+                  activeMode === 'focus' ? styles.darkText : styles.lightText,
+                ]}
+              >
+                {Math.floor(focusTime / 3600)}h{' '}
+                {Math.floor((focusTime % 3600) / 60)}m
+              </Text>
+              <Text
+                style={[
+                  styles.subText,
+                  activeMode === 'focus'
+                    ? styles.darkSubText
+                    : styles.lightSubText,
+                ]}
+              >
+                Focusing
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Scroll card */}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => switchActiveMode('scroll')}
+            style={{ flex: 1 }}
+          >
+            <View
+              style={[
+                styles.card,
+                activeMode === 'scroll' ? styles.darkCard : styles.lightCard,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.titleText,
+                  activeMode === 'scroll' ? styles.darkText : styles.lightText,
+                ]}
+              >
+                {Math.floor(scrollTime / 3600)}h{' '}
+                {Math.floor((scrollTime % 3600) / 60)}m
+              </Text>
+              <Text
+                style={[
+                  styles.subText,
+                  activeMode === 'scroll'
+                    ? styles.darkSubText
+                    : styles.lightSubText,
+                ]}
+              >
+                Scrolling
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Big Three title */}
@@ -120,50 +219,55 @@ const HomeScreen = () => {
             const isActive = task.active;
 
             return (
-              <View
+              <TouchableOpacity
                 key={task.id}
-                style={[
-                  isActive
-                    ? styles.bigThreeCardActive
-                    : styles.bigThreeCardSmall,
-                  isActive ? styles.darkCard : styles.lightCard,
-                ]}
+                style={{ width: task.active ? '35%' : '35%' }}
+                onPress={() => switchActiveBigThree(task)}
               >
-                <Ionicons
-                  name={task.icon}
-                  size={isActive ? 24 : 22}
-                  color={isActive ? '#FFF' : '#000'}
-                />
-
-                <Text
+                <View
                   style={[
-                    styles.bigThreeTitle,
-                    isActive ? styles.darkText : styles.lightText,
+                    task.active
+                      ? styles.bigThreeCardActive
+                      : styles.bigThreeCardSmall,
+                    task.active ? styles.darkCard : styles.lightCard,
                   ]}
                 >
-                  {task.title}
-                </Text>
+                  <Ionicons
+                    name={task.icon}
+                    size={isActive ? 24 : 22}
+                    color={isActive ? '#FFF' : '#000'}
+                  />
 
-                <Text
-                  style={[
-                    styles.bigThreeSubText,
-                    isActive ? styles.darkSubText : styles.lightSubText,
-                  ]}
-                >
-                  {task.category}
-                </Text>
+                  <Text
+                    style={[
+                      styles.bigThreeTitle,
+                      isActive ? styles.darkText : styles.lightText,
+                    ]}
+                  >
+                    {task.title}
+                  </Text>
 
-                {isActive && (
-                  <View style={styles.bigThreeActions}>
-                    <TouchableOpacity>
-                      <Ionicons name="pause-outline" size={25} color="#FFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity>
-                      <Ionicons name="close-outline" size={25} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
+                  <Text
+                    style={[
+                      styles.bigThreeSubText,
+                      isActive ? styles.darkSubText : styles.lightSubText,
+                    ]}
+                  >
+                    {task.category}
+                  </Text>
+
+                  {isActive && (
+                    <View style={styles.bigThreeActions}>
+                      <TouchableOpacity>
+                        <Ionicons name="pause-outline" size={25} color="#FFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity>
+                        <Ionicons name="close-outline" size={25} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -179,15 +283,10 @@ const HomeScreen = () => {
             <TouchableOpacity
               key={todo.id}
               style={styles.todoItem}
-              onPress={() =>
-                firestore()
-                  .collection('users')
-                  .doc(user.uid)
-                  .collection('todos')
-                  .doc(todo.id)
-                  .update({ completed: !todo.completed })
-              }
+              onPress={() => toggleTodo(todo)}
+              activeOpacity={0.7}
             >
+              {/* Circle */}
               <View
                 style={[
                   styles.todoCircle,
@@ -195,6 +294,7 @@ const HomeScreen = () => {
                 ]}
               />
 
+              {/* Text */}
               <Text
                 style={[
                   styles.todoText,
@@ -207,6 +307,9 @@ const HomeScreen = () => {
           ))}
         </View>
       </ScrollView>
+      {activeMode === 'scroll' && (
+        <View style={styles.overlay} pointerEvents="none" />
+      )}
       {/* Bottom Navbar */}
       <BottomNavbar />
     </SafeAreaView>
@@ -383,6 +486,15 @@ const styles = StyleSheet.create({
     color: '#000',
   },
 
+  todoCircleCompleted: {
+    backgroundColor: '#262626',
+  },
+
+  todoTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#777',
+  },
+
   bigThreeRow: {
     flexDirection: 'row',
     marginTop: 16,
@@ -392,7 +504,7 @@ const styles = StyleSheet.create({
   },
 
   bigThreeCardSmall: {
-    width: '30%',
+    // width: '30%',
     height: 150,
     padding: 13,
     borderRadius: 16,
@@ -401,7 +513,7 @@ const styles = StyleSheet.create({
   },
 
   bigThreeCardActive: {
-    width: '34%',
+    // width: '34%',
     height: 160,
     padding: 18,
     borderRadius: 18,
@@ -416,6 +528,12 @@ const styles = StyleSheet.create({
     width: '80%',
     marginLeft: 7,
     marginTop: 12,
+  },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 10,
   },
 });
 
