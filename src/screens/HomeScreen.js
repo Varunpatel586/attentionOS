@@ -16,6 +16,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 const HomeScreen = () => {
   const user = auth().currentUser;
 
+  const [userName, setUserName] = useState('');
   const [focusTime, setFocusTime] = useState(0);
   const [scrollTime, setScrollTime] = useState(0);
   const [bigThree, setBigThree] = useState([]);
@@ -30,6 +31,7 @@ const HomeScreen = () => {
       .onSnapshot(doc => {
         const data = doc.data();
         if (data) {
+          setUserName(data.name || '');
           setFocusTime(data.todayFocusTime || 0);
           setScrollTime(data.todayScrollTime || 0);
         }
@@ -66,13 +68,24 @@ const HomeScreen = () => {
     };
   }, []);
 
+  const activeTask = bigThree.find(t => t.active);
+  const inactiveTasks = bigThree.filter(t => !t.active);
+
+  const orderedBigThree = [
+    inactiveTasks[0] || null,
+    activeTask || null,
+    inactiveTasks[1] || null,
+  ];
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView>
         <Button title="Logout" onPress={() => auth().signOut()} />
         {/* Greeting */}
         <View style={styles.topTextContainer}>
-          <Text style={styles.topText}>Evening, Harsheel!</Text>
+          <Text style={styles.topText}>
+            Evening{userName ? `, ${userName}` : ''}!
+          </Text>
         </View>
 
         {/* Time cards */}
@@ -101,48 +114,58 @@ const HomeScreen = () => {
 
         {/* Big Three cards */}
         <View style={styles.bigThreeRow}>
-          {/* Left card */}
-          <View style={[styles.bigThreeCardSmall, styles.lightCard]}>
-            <Ionicons name="book-outline" size={22} color="#000" />
-            <Text style={[styles.bigThreeTitle, styles.lightText]}>
-              Task title
-            </Text>
-            <Text style={[styles.bigThreeSubText, styles.lightSubText]}>
-              Study
-            </Text>
-          </View>
+          {orderedBigThree.map((task, index) => {
+            if (!task) return <View key={index} style={{ width: '30%' }} />;
 
-          {/* Active middle card */}
-          <View style={[styles.bigThreeCardActive, styles.darkCard]}>
-            <Ionicons name="briefcase-outline" size={24} color="#FFF" />
+            const isActive = task.active;
 
-            <Text style={[styles.bigThreeTitle, styles.darkText]}>
-              Task title
-            </Text>
-            <Text style={[styles.bigThreeSubText, styles.darkSubText]}>
-              Work
-            </Text>
+            return (
+              <View
+                key={task.id}
+                style={[
+                  isActive
+                    ? styles.bigThreeCardActive
+                    : styles.bigThreeCardSmall,
+                  isActive ? styles.darkCard : styles.lightCard,
+                ]}
+              >
+                <Ionicons
+                  name={task.icon}
+                  size={isActive ? 24 : 22}
+                  color={isActive ? '#FFF' : '#000'}
+                />
 
-            <View style={styles.bigThreeActions}>
-              <TouchableOpacity>
-                <Ionicons name="pause-outline" size={25} color="#FFF" />
-              </TouchableOpacity>
-              <TouchableOpacity>
-                <Ionicons name="close-outline" size={25} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
+                <Text
+                  style={[
+                    styles.bigThreeTitle,
+                    isActive ? styles.darkText : styles.lightText,
+                  ]}
+                >
+                  {task.title}
+                </Text>
 
-          {/* Right card */}
-          <View style={[styles.bigThreeCardSmall, styles.lightCard]}>
-            <Ionicons name="barbell-outline" size={22} color="#000" />
-            <Text style={[styles.bigThreeTitle, styles.lightText]}>
-              Task title
-            </Text>
-            <Text style={[styles.bigThreeSubText, styles.lightSubText]}>
-              Gym
-            </Text>
-          </View>
+                <Text
+                  style={[
+                    styles.bigThreeSubText,
+                    isActive ? styles.darkSubText : styles.lightSubText,
+                  ]}
+                >
+                  {task.category}
+                </Text>
+
+                {isActive && (
+                  <View style={styles.bigThreeActions}>
+                    <TouchableOpacity>
+                      <Ionicons name="pause-outline" size={25} color="#FFF" />
+                    </TouchableOpacity>
+                    <TouchableOpacity>
+                      <Ionicons name="close-outline" size={25} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
 
         {/* Today’s List title */}
@@ -152,20 +175,36 @@ const HomeScreen = () => {
 
         {/* Today’s List container */}
         <View style={styles.todoContainer}>
-          <View style={styles.todoItem}>
-            <View style={styles.todoCircle} />
-            <Text style={styles.todoText}>Task1</Text>
-          </View>
+          {todos.map(todo => (
+            <TouchableOpacity
+              key={todo.id}
+              style={styles.todoItem}
+              onPress={() =>
+                firestore()
+                  .collection('users')
+                  .doc(user.uid)
+                  .collection('todos')
+                  .doc(todo.id)
+                  .update({ completed: !todo.completed })
+              }
+            >
+              <View
+                style={[
+                  styles.todoCircle,
+                  todo.completed && styles.todoCircleCompleted,
+                ]}
+              />
 
-          <View style={styles.todoItem}>
-            <View style={styles.todoCircle} />
-            <Text style={styles.todoText}>Task2</Text>
-          </View>
-
-          <View style={styles.todoItem}>
-            <View style={styles.todoCircle} />
-            <Text style={styles.todoText}>Task3</Text>
-          </View>
+              <Text
+                style={[
+                  styles.todoText,
+                  todo.completed && styles.todoTextCompleted,
+                ]}
+              >
+                {todo.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </ScrollView>
       {/* Bottom Navbar */}
@@ -301,7 +340,7 @@ const styles = StyleSheet.create({
   bigThreeTitle: {
     fontSize: 20,
     fontWeight: '500',
-    textAlign: 'center',
+    textAlign: 'flex-start',
     fontFamily: 'Poppins',
   },
 
