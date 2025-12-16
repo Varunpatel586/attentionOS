@@ -27,6 +27,7 @@ const HomeScreen = () => {
   useEffect(() => {
     if (!user) return;
 
+    //Getting data from firestore
     const unsubscribeUser = firestore()
       .collection('users')
       .doc(user.uid)
@@ -71,6 +72,7 @@ const HomeScreen = () => {
     };
   }, []);
 
+  //Logic for ordering big three tasks
   const activeTask = bigThree.find(t => t.active);
   const inactiveTasks = bigThree.filter(t => !t.active);
 
@@ -94,6 +96,7 @@ const HomeScreen = () => {
       });
   };
 
+  //Switching active mode between focus and scroll
   const switchActiveMode = async mode => {
     if (!user) return;
 
@@ -102,6 +105,7 @@ const HomeScreen = () => {
     });
   };
 
+  //Switching active big three task
   const switchActiveBigThree = async clickedTask => {
     if (!user) return;
 
@@ -499,12 +503,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 16,
     marginHorizontal: 20,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
   },
 
   bigThreeCardSmall: {
-    // width: '30%',
     height: 150,
     padding: 13,
     borderRadius: 16,
@@ -513,7 +516,6 @@ const styles = StyleSheet.create({
   },
 
   bigThreeCardActive: {
-    // width: '34%',
     height: 160,
     padding: 18,
     borderRadius: 18,
