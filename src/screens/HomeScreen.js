@@ -508,11 +508,11 @@ const styles = StyleSheet.create({
   },
 
   bigThreeCardSmall: {
-    height: 150,
+    height: 120,
     padding: 13,
     borderRadius: 16,
     alignItems: 'flex-start',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
 
   bigThreeCardActive: {
