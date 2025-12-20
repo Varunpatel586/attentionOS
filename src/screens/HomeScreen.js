@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,9 +12,12 @@ import BottomNavbar from '../components/BottomNavbar';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
+import { Animated, Dimensions } from 'react-native';
 
 const HomeScreen = () => {
   const user = auth().currentUser;
+  const navigation = useNavigation();
 
   const [userName, setUserName] = useState('');
   const [focusTime, setFocusTime] = useState(0);
@@ -23,6 +26,29 @@ const HomeScreen = () => {
   const [todos, setTodos] = useState([]);
   const [focusedCard, setFocusedCard] = useState(null);
   const [activeMode, setActiveMode] = useState('focus');
+
+  // For side menu animation
+  const [menuOpen, setMenuOpen] = useState(false);
+  const slideAnim = useRef(
+    new Animated.Value(Dimensions.get('window').width),
+  ).current;
+
+  const openMenu = () => {
+    setMenuOpen(true);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeMenu = () => {
+    Animated.timing(slideAnim, {
+      toValue: Dimensions.get('window').width,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => setMenuOpen(false));
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -132,10 +158,13 @@ const HomeScreen = () => {
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         {/* <Button title="Logout" onPress={() => auth().signOut()} /> */}
         {/* Greeting */}
-        <View style={styles.topTextContainer}>
+        <View style={styles.headerRow}>
           <Text style={styles.topText}>
             Evening{userName ? `, ${userName}` : ''}!
           </Text>
+          <TouchableOpacity onPress={openMenu}>
+            <Ionicons name="menu-outline" size={28} color="#000" />
+          </TouchableOpacity>
         </View>
 
         {/* Time cards */}
@@ -287,15 +316,17 @@ const HomeScreen = () => {
             <TouchableOpacity
               key={todo.id}
               style={styles.todoItem}
-              onPress={() => toggleTodo(todo)}
-              activeOpacity={0.7}
+              onPress={() =>
+                navigation.navigate('ToDoEdit', { todoId: todo.id })
+              }
             >
               {/* Circle */}
-              <View
-                style={[
-                  styles.todoCircle,
-                  todo.completed && styles.todoCircleCompleted,
-                ]}
+              <TouchableOpacity
+                onPress={e => {
+                  e.stopPropagation();
+                  toggleTodo(todo);
+                }}
+                style={styles.todoCircle}
               />
 
               {/* Text */}
@@ -313,6 +344,49 @@ const HomeScreen = () => {
       </ScrollView>
       {activeMode === 'scroll' && (
         <View style={styles.overlay} pointerEvents="none" />
+      )}
+      {menuOpen && (
+        <>
+          {/* Overlay */}
+          <TouchableOpacity
+            style={styles.menuOverlay}
+            activeOpacity={1}
+            onPress={closeMenu}
+          />
+
+          {/* Sliding Menu */}
+          <Animated.View
+            style={[
+              styles.menuContainer,
+              { transform: [{ translateX: slideAnim }] },
+            ]}
+          >
+            <TouchableOpacity style={styles.closeBtn} onPress={closeMenu}>
+              <Ionicons name="close-outline" size={26} color="#FFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem}>
+              <Text style={styles.menuText}>Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem}>
+              <Text style={styles.menuText}>Preferences</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem}>
+              <Text style={styles.menuText}>About</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, styles.logout]}
+              onPress={() => auth().signOut()}
+            >
+              <Text style={[styles.menuText, { color: '#E35D5D' }]}>
+                Log Out
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </>
       )}
       {/* Bottom Navbar */}
       <BottomNavbar />
@@ -335,6 +409,7 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: '500',
     fontFamily: 'Poppins',
+    marginTop: 10,
   },
 
   timeContainer: {
@@ -536,6 +611,56 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.45)',
     zIndex: 10,
+  },
+
+  headerRow: {
+    marginLeft: 20,
+    marginRight: 20,
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 20,
+  },
+
+  menuContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '70%',
+    height: '100%',
+    backgroundColor: '#262626',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    zIndex: 30,
+  },
+
+  closeBtn: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+  },
+
+  menuItem: {
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#444',
+  },
+
+  menuText: {
+    fontSize: 18,
+    color: '#FFF',
+    fontFamily: 'Poppins',
+  },
+
+  logout: {
+    marginTop: 20,
+    borderBottomWidth: 0,
   },
 });
 

@@ -58,6 +58,9 @@ const SignupScreen = ({ onSwitchToLogin }) => {
         title: 'Reply to emails',
         completed: false,
         promoted: false,
+        taskGroup: 'work',
+        dueDate: null,
+        description: 'Reply to all pending emails in inbox',
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
@@ -65,6 +68,9 @@ const SignupScreen = ({ onSwitchToLogin }) => {
         title: 'Read 20 pages',
         completed: false,
         promoted: false,
+        taskGroup: 'study',
+        dueDate: null,
+        description: 'Read 20 pages of the assigned book',
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
@@ -72,6 +78,9 @@ const SignupScreen = ({ onSwitchToLogin }) => {
         title: 'Plan tomorrow',
         completed: false,
         promoted: false,
+        taskGroup: 'personal',
+        dueDate: null,
+        description: "Plan tomorrow's tasks and schedule",
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
     } catch (e) {
