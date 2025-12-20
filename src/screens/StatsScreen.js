@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Assuming this path is correct
-import BottomNavbar from '../components/BottomNavbar'; 
+import BottomNavbar from '../components/BottomNavbar';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 const StatsScreen = () => {
@@ -34,47 +34,57 @@ const StatsScreen = () => {
 
         {/* 1. Summary Card */}
         <View style={styles.summaryCard}>
-          <View style={styles.accentBarContainer}>
-            <View style={styles.accentBar} />
-          </View>
+          <View style={styles.summaryBar} />
+
           <View style={styles.summaryContent}>
             <Text style={styles.summaryText}>
-              You planned **{data.plannedTasks} tasks** and completed **{data.completedTasks}**
+              You planned {data.plannedTasks} tasks and completed{' '}
+              {data.completedTasks}
             </Text>
+
             <Text style={styles.summaryText}>
-              You spent **{data.focusedTime} focused** and **{data.scrollingTime} scrolling**.
+              You spent {data.focusedTime} focused and {data.scrollingTime}{' '}
+              scrolling.
             </Text>
+
             <Text style={styles.summaryText}>
-              Your most productive slot was **{data.productiveSlot}**.
+              Your most productive slot was {data.productiveSlot}.
             </Text>
           </View>
         </View>
 
         {/* 2. Context Switches & Big Three Row */}
         <View style={styles.cardsRow}>
-          {/* Context Switches Card (Dark Card) */}
-          <View style={styles.contextCard}>
-            <Text style={styles.contextNumber}>{data.contextSwitches}</Text>
-            <Text style={styles.contextLabel}>Context switches</Text>
-            <Text style={styles.contextToday}>Today</Text>
-            <Text style={styles.contextLost}>{data.timeLost}</Text>
-          </View>
+          {/* Context Switches Card */}
+          <View style={{ width: 110 }}>
+            <View style={styles.contextWrapper}>
+              {/* Dark Card */}
+              <View style={styles.contextCard}>
+                <Text style={styles.contextNumber}>{data.contextSwitches}</Text>
+                <Text style={styles.contextLabel}>Context</Text>
+                <Text style={styles.contextLabel}>switches</Text>
+                <Text style={styles.contextToday}>Today</Text>
+              </View>
 
-          {/* Big Three Card (Light Card with Bars) */}
+              {/* OUTSIDE pill */}
+              <View style={styles.contextPill}>
+                <Text style={styles.contextPillText}>{data.timeLost}</Text>
+              </View>
+            </View>
+          </View>
+          {/* Big Three Card */}
           <View style={styles.bigThreeCard}>
             <View style={styles.bigThreeHeader}>
               <Text style={styles.bigThreeTitle}>Big Three</Text>
-              <TouchableOpacity style={styles.openIcon}>
-                <Icon name="open-outline" size={20} color="#000" />
+              <TouchableOpacity>
+                <Icon name="open-outline" size={18} color="#262626" />
               </TouchableOpacity>
             </View>
 
-            {/* Progress Bars */}
             <View style={styles.progressContainer}>
               {data.bigThreeProgress.map((progress, index) => (
-                <View key={index} style={styles.progressBarWrapper}>
-                  <View style={styles.progressBarBg} />
-                  <View style={[styles.progressBarFill, { width: progress }]} />
+                <View key={index} style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: progress }]} />
                 </View>
               ))}
             </View>
@@ -90,7 +100,8 @@ const StatsScreen = () => {
             </View>
             <View style={styles.tipContent}>
               <Text style={styles.tipText}>
-                If you reduced scrolling by 30 minutes, you could complete 1 extra task daily.
+                If you reduced scrolling by 30 minutes, you could complete 1
+                extra task daily.
               </Text>
             </View>
           </View>
@@ -120,13 +131,12 @@ const StatsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  // --- General Styles ---
   container: {
     flex: 1,
     backgroundColor: '#F2EFE9', // Adjusted background to match image
   },
   scrollContent: {
-    paddingTop: 60,
+    paddingTop: 30,
     paddingBottom: 120,
     paddingHorizontal: 20,
   },
@@ -144,33 +154,47 @@ const styles = StyleSheet.create({
   // --- 1. Summary Card ---
   summaryCard: {
     backgroundColor: '#E9E5DC',
-    borderRadius: 17,
-    padding: 18,
-    marginBottom: 24,
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingRight: 20,
+    paddingLeft: 14,
     flexDirection: 'row',
-    alignItems: 'stretch', // Ensure children stretch height
-    minHeight: 140, // Minimum height for better spacing
+    marginBottom: 16,
   },
+
   accentBarContainer: {
     width: 10,
     marginRight: 12,
     alignItems: 'center',
   },
   accentBar: {
-    width: 4, // Thinner bar
+    width: 7, // Thinner bar
     backgroundColor: '#262626',
     flex: 1,
-    borderRadius: 2,
+    borderRadius: 3,
   },
+
+  summaryBar: {
+    width: 6,
+    backgroundColor: '#262626',
+    borderRadius: 6,
+    marginRight: 14,
+  },
+
   summaryContent: {
     flex: 1,
   },
+
   summaryText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: 'bold',
     color: '#262626',
     fontFamily: 'Poppins',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+
+  summaryTextLast: {
+    marginBottom: 0,
   },
 
   // --- 2. Context Switches & Big Three Row ---
@@ -179,95 +203,115 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 15, // Increased gap slightly
   },
+
+  contextWrapper: {
+    alignItems: 'center',
+  },
+
   contextCard: {
     backgroundColor: '#262626',
-    borderRadius: 17,
-    padding: 18,
-    width: 130, // Adjusted width for better fit
-    justifyContent: 'center',
+    borderRadius: 22,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    width: 110,
     alignItems: 'center',
-    minHeight: 180, // Set height to match Big Three card
   },
+
   contextNumber: {
-    fontSize: 48, // Larger number
-    fontWeight: 'bold',
     color: '#FFF',
+    textAlign: 'center',
     fontFamily: 'Poppins',
-    marginBottom: 4,
+    fontSize: 35,
+    fontStyle: 'normal',
+    fontWeight: 500,
+    lineHeight: 'normal',
   },
+
   contextLabel: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#BFBFBF', // Light grey for subtext
+    color: '#FFF',
     textAlign: 'center',
     fontFamily: 'Poppins',
-    marginBottom: 2,
+    fontSize: 12,
+    fontStyle: 'normal',
+    fontWeight: 400,
+    lineHeight: 'normal',
   },
+
   contextToday: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#BFBFBF',
+    color: '#FFF',
     textAlign: 'center',
     fontFamily: 'Poppins',
-    marginBottom: 10,
+    fontSize: 16,
+    fontStyle: 'normal',
+    fontWeight: 500,
+    lineHeight: 'normal',
   },
+
   contextLost: {
-    fontSize: 13,
+    color: '#000',
+    textAlign: 'center',
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontStyle: 'normal',
+    fontWeight: '500',
+    backgroundColor: '#E9E5DC',
+  },
+
+  contextPill: {
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+
+  contextPillText: {
+    fontSize: 12,
     fontWeight: '500',
     color: '#262626',
-    textAlign: 'center',
     fontFamily: 'Poppins',
-    backgroundColor: '#E9E5DC', // Light card background color
-    borderRadius: 20,
-    paddingVertical: 3,
-    paddingHorizontal: 10,
   },
 
   // Big Three Card
   bigThreeCard: {
     flex: 1,
     backgroundColor: '#E9E5DC',
-    borderRadius: 17,
-    padding: 18,
-    minHeight: 180,
-    justifyContent: 'center',
+    borderRadius: 18,
+    padding: 16,
   },
+
   bigThreeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
   },
+
   bigThreeTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#262626',
     fontFamily: 'Poppins',
   },
+
   openIcon: {
-      padding: 5,
+    padding: 5,
   },
-  
+
   // Progress Bars
   progressContainer: {
-    gap: 12, // Reduced gap between bars
+    gap: 13,
+    paddingHorizontal: 6,
   },
-  progressBarWrapper: {
-    height: 18, // Reduced height for thinner bars
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  progressBarBg: {
-    position: 'absolute',
-    width: '100%',
-    height: 14, // Thinner background bar
-    backgroundColor: '#D1CEC5', // Light grey background for the bar
+
+  progressTrack: {
+    height: 25,
+    backgroundColor: '#DAD6CC',
     borderRadius: 7,
+    overflow: 'hidden',
   },
-  progressBarFill: {
-    position: 'absolute',
-    height: 14,
-    backgroundColor: '#262626', // Dark grey fill color
+
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#262626',
     borderRadius: 7,
   },
 
@@ -291,11 +335,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
     alignItems: 'center',
   },
+
   tipAccentBar: {
-    width: 4,
-    backgroundColor: '#262626',
     flex: 1,
-    borderRadius: 2,
+    width: 6,
+    backgroundColor: '#262626',
+    borderRadius: 6,
+    marginRight: 14,
   },
   tipContent: {
     flex: 1,
@@ -303,9 +349,10 @@ const styles = StyleSheet.create({
   },
   tipText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: 'bold',
     color: '#262626',
     fontFamily: 'Poppins',
+    marginBottom: 10,
   },
   moreTipsButton: {
     width: 130, // Fixed width for the button (adjusts to design)
