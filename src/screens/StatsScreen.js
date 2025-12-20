@@ -215,6 +215,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     width: 110,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
   contextNumber: {
@@ -245,6 +246,7 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     fontWeight: 500,
     lineHeight: 'normal',
+    marginTop: 6,
   },
 
   contextLost: {
