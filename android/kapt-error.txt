@@ -1,0 +1,581 @@
+﻿> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :react-native-firebase_app
+:react-native-firebase_app package.json found at E:\attentionOS-main\node_modules\@react-native-firebase\app\package.json
+:react-native-firebase_app:firebase.bom using default value: 34.6.0
+:react-native-firebase_app:play.play-services-auth using default value: 21.4.0
+:react-native-firebase_app package.json found at E:\attentionOS-main\node_modules\@react-native-firebase\app\package.json
+:react-native-firebase_app:version set from package.json: 23.7.0 (23,7,0 - 23007000)
+:react-native-firebase_app:android.compileSdk using custom value: 36
+:react-native-firebase_app:android.targetSdk using custom value: 36
+:react-native-firebase_app:android.minSdk using custom value: 24
+:react-native-firebase_app:reactNativeAndroidDir E:\attentionOS-main\node_modules\react-native
+
+> Configure project :react-native-firebase_auth
+:react-native-firebase_auth package.json found at E:\attentionOS-main\node_modules\@react-native-firebase\auth\package.json
+:react-native-firebase_app package.json found at E:\attentionOS-main\node_modules\@react-native-firebase\app\package.json
+:react-native-firebase_auth:firebase.bom using default value: 34.6.0
+:react-native-firebase_auth package.json found at E:\attentionOS-main\node_modules\@react-native-firebase\auth\package.json
+:react-native-firebase_auth:version set from package.json: 23.7.0 (23,7,0 - 23007000)
+:react-native-firebase_auth:android.compileSdk using custom value: 36
+:react-native-firebase_auth:android.targetSdk using custom value: 36
+:react-native-firebase_auth:android.minSdk using custom value: 24
+:react-native-firebase_auth:reactNativeAndroidDir E:\attentionOS-main\node_modules\react-native
+
+> Configure project :react-native-firebase_firestore
+:react-native-firebase_firestore package.json found at E:\attentionOS-main\node_modules\@react-native-firebase\firestore\package.json
+:react-native-firebase_app package.json found at E:\attentionOS-main\node_modules\@react-native-firebase\app\package.json
+:react-native-firebase_firestore:firebase.bom using default value: 34.6.0
+:react-native-firebase_firestore package.json found at E:\attentionOS-main\node_modules\@react-native-firebase\firestore\package.json
+:react-native-firebase_firestore:version set from package.json: 23.7.0 (23,7,0 - 23007000)
+:react-native-firebase_firestore:android.compileSdk using custom value: 36
+:react-native-firebase_firestore:android.targetSdk using custom value: 36
+:react-native-firebase_firestore:android.minSdk using custom value: 24
+:react-native-firebase_firestore:reactNativeAndroidDir E:\attentionOS-main\node_modules\react-native
+
+> Task :app:generateAutolinkingNewArchitectureFiles UP-TO-DATE
+> Task :app:generateAutolinkingPackageList UP-TO-DATE
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :app:generateReactNativeEntryPoint UP-TO-DATE
+> Task :react-native-firebase_app:preBuild UP-TO-DATE
+> Task :react-native-firebase_auth:preBuild UP-TO-DATE
+> Task :react-native-firebase_firestore:preBuild UP-TO-DATE
+> Task :react-native-safe-area-context:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :react-native-safe-area-context:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :react-native-safe-area-context:preBuild UP-TO-DATE
+> Task :react-native-screens:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :react-native-screens:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :react-native-screens:preBuild UP-TO-DATE
+> Task :react-native-vector-icons:generateCodegenSchemaFromJavaScript UP-TO-DATE
+> Task :react-native-vector-icons:generateCodegenArtifactsFromSchema UP-TO-DATE
+> Task :react-native-vector-icons:preBuild UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-firebase_app:preDebugBuild UP-TO-DATE
+> Task :react-native-firebase_app:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-firebase_auth:preDebugBuild UP-TO-DATE
+> Task :react-native-firebase_auth:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-firebase_firestore:preDebugBuild UP-TO-DATE
+> Task :react-native-firebase_firestore:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-safe-area-context:preDebugBuild UP-TO-DATE
+> Task :react-native-safe-area-context:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-screens:preDebugBuild UP-TO-DATE
+> Task :react-native-screens:writeDebugAarMetadata UP-TO-DATE
+> Task :react-native-vector-icons:preDebugBuild UP-TO-DATE
+> Task :react-native-vector-icons:writeDebugAarMetadata UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :react-native-firebase_app:generateDebugResValues UP-TO-DATE
+> Task :react-native-firebase_app:generateDebugResources UP-TO-DATE
+> Task :react-native-firebase_app:packageDebugResources UP-TO-DATE
+> Task :react-native-firebase_auth:generateDebugResValues UP-TO-DATE
+> Task :react-native-firebase_auth:generateDebugResources UP-TO-DATE
+> Task :react-native-firebase_auth:packageDebugResources UP-TO-DATE
+> Task :react-native-firebase_firestore:generateDebugResValues UP-TO-DATE
+> Task :react-native-firebase_firestore:generateDebugResources UP-TO-DATE
+> Task :react-native-firebase_firestore:packageDebugResources UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugResValues UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugResources UP-TO-DATE
+> Task :react-native-safe-area-context:packageDebugResources UP-TO-DATE
+> Task :react-native-screens:generateDebugResValues UP-TO-DATE
+> Task :react-native-screens:generateDebugResources UP-TO-DATE
+> Task :react-native-screens:packageDebugResources UP-TO-DATE
+> Task :react-native-vector-icons:generateDebugResValues UP-TO-DATE
+> Task :react-native-vector-icons:generateDebugResources UP-TO-DATE
+> Task :react-native-vector-icons:packageDebugResources UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-firebase_app:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-firebase_app:processDebugManifest UP-TO-DATE
+> Task :react-native-firebase_auth:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-firebase_auth:processDebugManifest UP-TO-DATE
+> Task :react-native-firebase_firestore:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-firebase_firestore:processDebugManifest UP-TO-DATE
+> Task :react-native-safe-area-context:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-safe-area-context:processDebugManifest UP-TO-DATE
+> Task :react-native-screens:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-screens:processDebugManifest UP-TO-DATE
+> Task :react-native-vector-icons:extractDeepLinksDebug UP-TO-DATE
+> Task :react-native-vector-icons:processDebugManifest UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :react-native-firebase_app:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-firebase_app:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-firebase_app:generateDebugRFile UP-TO-DATE
+> Task :react-native-firebase_auth:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-firebase_auth:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-firebase_auth:generateDebugRFile UP-TO-DATE
+> Task :react-native-firebase_firestore:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-firebase_firestore:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-firebase_firestore:generateDebugRFile UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-safe-area-context:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-safe-area-context:generateDebugRFile UP-TO-DATE
+> Task :react-native-screens:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-screens:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-screens:generateDebugRFile UP-TO-DATE
+> Task :react-native-vector-icons:compileDebugLibraryResources UP-TO-DATE
+> Task :react-native-vector-icons:parseDebugLocalResources UP-TO-DATE
+> Task :react-native-vector-icons:generateDebugRFile UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :react-native-firebase_app:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-firebase_app:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-firebase_app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-firebase_app:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-firebase_auth:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-firebase_auth:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-firebase_auth:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-firebase_auth:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-firebase_firestore:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-firebase_firestore:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-firebase_firestore:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-firebase_firestore:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-safe-area-context:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugKotlin UP-TO-DATE
+> Task :react-native-safe-area-context:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-screens:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-screens:compileDebugKotlin UP-TO-DATE
+> Task :react-native-screens:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-screens:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-screens:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-vector-icons:generateDebugBuildConfig UP-TO-DATE
+> Task :react-native-vector-icons:javaPreCompileDebug UP-TO-DATE
+> Task :react-native-vector-icons:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-vector-icons:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:kaptGenerateStubsDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:copyReactNativeVectorIconFonts UP-TO-DATE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :react-native-firebase_app:mergeDebugShaders UP-TO-DATE
+> Task :react-native-firebase_app:compileDebugShaders NO-SOURCE
+> Task :react-native-firebase_app:generateDebugAssets UP-TO-DATE
+> Task :react-native-firebase_app:mergeDebugAssets UP-TO-DATE
+> Task :react-native-firebase_auth:mergeDebugShaders UP-TO-DATE
+> Task :react-native-firebase_auth:compileDebugShaders NO-SOURCE
+> Task :react-native-firebase_auth:generateDebugAssets UP-TO-DATE
+> Task :react-native-firebase_auth:mergeDebugAssets UP-TO-DATE
+> Task :react-native-firebase_firestore:mergeDebugShaders UP-TO-DATE
+> Task :react-native-firebase_firestore:compileDebugShaders NO-SOURCE
+> Task :react-native-firebase_firestore:generateDebugAssets UP-TO-DATE
+> Task :react-native-firebase_firestore:mergeDebugAssets UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugShaders UP-TO-DATE
+> Task :react-native-safe-area-context:compileDebugShaders NO-SOURCE
+> Task :react-native-safe-area-context:generateDebugAssets UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugAssets UP-TO-DATE
+> Task :react-native-screens:mergeDebugShaders UP-TO-DATE
+> Task :react-native-screens:compileDebugShaders NO-SOURCE
+> Task :react-native-screens:generateDebugAssets UP-TO-DATE
+> Task :react-native-screens:mergeDebugAssets UP-TO-DATE
+> Task :react-native-vector-icons:mergeDebugShaders UP-TO-DATE
+> Task :react-native-vector-icons:compileDebugShaders NO-SOURCE
+> Task :react-native-vector-icons:generateDebugAssets UP-TO-DATE
+> Task :react-native-vector-icons:mergeDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-screens:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-firebase_auth:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-firebase_firestore:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-firebase_app:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :react-native-vector-icons:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :react-native-firebase_app:processDebugJavaRes NO-SOURCE
+> Task :react-native-firebase_auth:processDebugJavaRes NO-SOURCE
+> Task :react-native-firebase_firestore:processDebugJavaRes NO-SOURCE
+> Task :react-native-safe-area-context:processDebugJavaRes UP-TO-DATE
+> Task :react-native-screens:processDebugJavaRes UP-TO-DATE
+> Task :react-native-vector-icons:processDebugJavaRes NO-SOURCE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :react-native-safe-area-context:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-screens:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-firebase_auth:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-firebase_firestore:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-firebase_app:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :react-native-vector-icons:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:configureCMakeDebug[arm64-v8a]
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:buildCMakeDebug[arm64-v8a]
+> Task :app:configureCMakeDebug[armeabi-v7a]
+
+> Task :app:kaptDebugKotlin
+.\gradlew : E:\attentionOS-m
+ain\android\app\build\tmp\ka
+pt3\stubs\debug\com\attentio
+nos\database\SessionDao.java
+:28: error: Not sure how to 
+convert a Cursor to this 
+method's return type 
+(java.lang.Object).
+At line:1 char:1
++ .\gradlew assembleDebug 
+2>&1 | Out-File -FilePath 
+kapt-error.txt -Enc ...
++ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (E:\at  
+  tentionOS-...a.lang.Obj   
+ ect).:String) [], Remot    
+eException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+    public abstract 
+java.lang.Object 
+getSessionsForToday(long 
+todayStartMillis, @org.jetbr
+ains.annotations.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:29: error: 
+Query method parameters 
+should either be a type 
+that can be converted into 
+a database column or a List 
+/ Array that contains such 
+type. You can consider 
+adding a Type Adapter for 
+this.
+    kotlin.coroutines.Contin
+uation<? super java.util.Lis
+t<com.attentionos.database.A
+ppSession>> $completion);
+                            
+                            
+                            
+            ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:28: error: 
+Unused parameter: 
+$completion
+    public abstract 
+java.lang.Object 
+getSessionsForToday(long 
+todayStartMillis, @org.jetbr
+ains.annotations.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:38: error: 
+Not sure how to convert a 
+Cursor to this method's 
+return type 
+(java.lang.Object).
+    public abstract 
+java.lang.Object 
+getSessionsForWeek(long 
+weekStartMillis, @org.jetbra
+ins.annotations.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:39: error: 
+Query method parameters 
+should either be a type 
+that can be converted into 
+a database column or a List 
+/ Array that contains such 
+type. You can consider 
+adding a Type Adapter for 
+this.
+    kotlin.coroutines.Contin
+uation<? super java.util.Lis
+t<com.attentionos.database.A
+ppSession>> $completion);
+                            
+                            
+                            
+            ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:38: error: 
+Unused parameter: 
+$completion
+    public abstract 
+java.lang.Object 
+getSessionsForWeek(long 
+weekStartMillis, @org.jetbra
+ins.annotations.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:47: error: 
+Not sure how to convert a 
+Cursor to this method's 
+return type 
+(java.lang.Object).
+    public abstract 
+java.lang.Object getAllSessi
+ons(@org.jetbrains.annotatio
+ns.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:48: error: 
+Query method parameters 
+should either be a type 
+that can be converted into 
+a database column or a List 
+/ Array that contains such 
+type. You can consider 
+adding a Type Adapter for 
+this.
+    kotlin.coroutines.Contin
+uation<? super java.util.Lis
+t<com.attentionos.database.A
+ppSession>> $completion);
+                            
+                            
+                            
+            ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:47: error: 
+Unused parameter: 
+$completion
+    public abstract 
+java.lang.Object getAllSessi
+ons(@org.jetbrains.annotatio
+ns.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:57: error: 
+Not sure how to handle 
+query method's return type 
+(java.lang.Object). DELETE 
+query methods must either 
+return void or int (the 
+number of deleted rows).
+    public abstract 
+java.lang.Object 
+deleteOldSessions(long 
+beforeTimestamp, @org.jetbra
+ins.annotations.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:58: error: 
+Query method parameters 
+should either be a type 
+that can be converted into 
+a database column or a List 
+/ Array that contains such 
+type. You can consider 
+adding a Type Adapter for 
+this.
+    kotlin.coroutines.Contin
+uation<? super 
+java.lang.Integer> 
+$completion);
+                            
+                            
+      ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:57: error: 
+Unused parameter: 
+$completion
+    public abstract 
+java.lang.Object 
+deleteOldSessions(long 
+beforeTimestamp, @org.jetbra
+ins.annotations.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:68: error: 
+Query method parameters 
+should either be a type 
+that can be converted into 
+a database column or a List 
+/ Array that contains such 
+type. You can consider 
+adding a Type Adapter for 
+this.
+    kotlin.coroutines.Contin
+uation<? super 
+java.lang.Long> 
+$completion);
+                            
+                            
+   ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:67: error: 
+Unused parameter: 
+$completion
+    public abstract 
+java.lang.Object getTodayDis
+tractedTimeMillis(long 
+todayStartMillis, @org.jetbr
+ains.annotations.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:78: error: 
+Query method parameters 
+should either be a type 
+that can be converted into 
+a database column or a List 
+/ Array that contains such 
+type. You can consider 
+adding a Type Adapter for 
+this.
+    kotlin.coroutines.Contin
+uation<? super 
+java.lang.Long> 
+$completion);
+                            
+                            
+   ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:77: error: 
+Unused parameter: 
+$completion
+    public abstract 
+java.lang.Object getWeeklyDi
+stractedTimeMillis(long 
+weekStartMillis, @org.jetbra
+ins.annotations.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:19: error: 
+Type of the parameter must 
+be a class annotated with 
+@Entity or a 
+collection/array of it.
+    kotlin.coroutines.Contin
+uation<? super 
+java.lang.Long> 
+$completion);
+                            
+                            
+   ^
+E:\attentionOS-main\android\
+app\build\tmp\kapt3\stubs\de
+bug\com\attentionos\database
+\SessionDao.java:17: error: 
+Not sure how to handle 
+insert method's return type.
+    public abstract 
+java.lang.Object insertSessi
+on(@org.jetbrains.annotation
+s.NotNull()
+                            
+         ^
+E:\attentionOS-main\android\app\build\tmp\kapt3\stubs\debug\com\attentionos\database\SessionDao.java:28: warning: The query returns some columns [id, appPackageName, appLabel, startTime, endTime, durationMillis, scrollCount, classification] which are not used by java.lang.Object. You can use @ColumnInfo annotation on the fields to specify the mapping. You can annotate the method with @RewriteQueriesToDropUnusedColumns to direct Room to rewrite your query to avoid fetching unused columns.  You can suppress this warning by annotating the method with @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH). Columns returned by the query: id, appPackageName, appLabel, startTime, endTime, durationMillis, scrollCount, classification.
+    public abstract java.lang.Object getSessionsForToday(long todayStartMillis, @org.jetbrains.annotations.NotNull()
+                                     ^
+E:\attentionOS-main\android\app\build\tmp\kapt3\stubs\debug\com\attentionos\database\SessionDao.java:38: warning: The query returns some columns [id, appPackageName, appLabel, startTime, endTime, durationMillis, scrollCount, classification] which are not used by java.lang.Object. You can use @ColumnInfo annotation on the fields to specify the mapping. You can annotate the method with @RewriteQueriesToDropUnusedColumns to direct Room to rewrite your query to avoid fetching unused columns.  You can suppress this warning by annotating the method with @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH). Columns returned by the query: id, appPackageName, appLabel, startTime, endTime, durationMillis, scrollCount, classification.
+    public abstract java.lang.Object getSessionsForWeek(long weekStartMillis, @org.jetbrains.annotations.NotNull()
+                                     ^
+E:\attentionOS-main\android\app\build\tmp\kapt3\stubs\debug\com\attentionos\database\SessionDao.java:47: warning: The query returns some columns [id, appPackageName, appLabel, startTime, endTime, durationMillis, scrollCount, classification] which are not used by java.lang.Object. You can use @ColumnInfo annotation on the fields to specify the mapping. You can annotate the method with @RewriteQueriesToDropUnusedColumns to direct Room to rewrite your query to avoid fetching unused columns.  You can suppress this warning by annotating the method with @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH). Columns returned by the query: id, appPackageName, appLabel, startTime, endTime, durationMillis, scrollCount, classification.
+    public abstract java.lang.Object getAllSessions(@org.jetbrains.annotations.NotNull()
+                                     ^
+
+> Task :app:kaptDebugKotlin FAILED
+> Task :app:buildCMakeDebug[armeabi-v7a]
+
+[Incubating] Problems report is available at: file:///E:/attentionOS-main/android/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with 
+an exception.
+
+* What went wrong:
+Execution failed for task 
+':app:kaptDebugKotlin'.
+> A failure occurred while 
+executing org.jetbrains.kotl
+in.gradle.internal.KaptWitho
+utKotlincTask$KaptExecutionW
+orkAction
+
+* Try:
+> Run with --stacktrace 
+option to get the stack 
+trace.
+> Run with --info or 
+--debug option to get more 
+log output.
+> Run with --scan to 
+generate a Build Scan 
+(Powered by Develocity).
+> Get more help at 
+https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.0.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+155 actionable tasks: 5 executed, 150 up-to-date
+
+BUILD FAILED in 7s
