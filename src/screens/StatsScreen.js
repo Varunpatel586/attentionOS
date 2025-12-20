@@ -142,13 +142,14 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30, // Increased margin for spacing
+    marginBottom: 19,
   },
   headerTitle: {
-    fontSize: 24, // Larger title to match image
-    fontWeight: 'bold', // Bolder title
-    color: '#262626',
+    color: 'black',
+    fontSize: 18,
     fontFamily: 'Poppins',
+    fontWeight: '500',
+    wordWrap: 'break-word',
   },
 
   // --- 1. Summary Card ---
@@ -300,21 +301,21 @@ const styles = StyleSheet.create({
 
   // Progress Bars
   progressContainer: {
-    gap: 13,
+    gap: 10,
     paddingHorizontal: 6,
   },
 
   progressTrack: {
     height: 25,
-    backgroundColor: '#DAD6CC',
-    borderRadius: 7,
+    backgroundColor: '#BFBFBD',
+    borderRadius: 20,
     overflow: 'hidden',
   },
 
   progressFill: {
     height: '100%',
     backgroundColor: '#262626',
-    borderRadius: 7,
+    borderRadius: 20,
   },
 
   // --- 3. Tips Row ---
@@ -327,10 +328,9 @@ const styles = StyleSheet.create({
     flex: 1, // Let flex handle the width
     backgroundColor: '#E9E5DC',
     borderRadius: 17,
-    padding: 18,
     flexDirection: 'row',
     alignItems: 'stretch',
-    minHeight: 140,
+    minHeight: 158,
   },
   tipAccentBarContainer: {
     width: 10,
@@ -350,14 +350,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tipText: {
-    fontSize: 15,
+    color: 'black',
     fontWeight: 'bold',
-    color: '#262626',
+    fontSize: 15,
     fontFamily: 'Poppins',
-    marginBottom: 10,
+    wordWrap: 'break-word',
   },
   moreTipsButton: {
-    width: 130, // Fixed width for the button (adjusts to design)
+    width: 115, // Fixed width for the button (adjusts to design)
+    minHeight: 158,
     backgroundColor: '#262626',
     borderRadius: 17,
     padding: 16,
@@ -377,7 +378,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
     fontFamily: 'Poppins',
-    marginTop: -10, // Pull text up closer to the arrow
   },
 
   // --- 4. Reset Button ---
