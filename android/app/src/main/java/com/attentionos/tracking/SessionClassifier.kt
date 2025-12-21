@@ -37,10 +37,16 @@ object SessionClassifier {
     private const val DEFAULT_THRESHOLD_MS = 20_000L
 
     /**
-     * Hard fail-safe threshold - must NEVER be escapable.
-     * If attention time reaches 90 seconds, detection MUST fire regardless of scrolls.
+     * Minimum number of scroll events for active scrolling detection.
+     * Lowered to 5 because reel-watching involves less frequent swiping.
      */
-    private const val HARD_FAIL_SAFE_MS = 90_000L
+    private const val MIN_SCROLL_COUNT = 5
+
+    /**
+     * Minimum scroll count for hybrid behavior detection.
+     * Just 3 scrolls over 20s indicates engagement.
+     */
+    private const val HYBRID_MIN_SCROLL_COUNT = 3
 
     /**
      * App-specific thresholds tuned for real usage patterns.
@@ -61,58 +67,45 @@ object SessionClassifier {
      * Check if current session metrics satisfy any detection rule.
      * Returns true if ANY rule matches (real-time detection).
      * 
-     * Simplified human-aligned rules:
-     * - Rule A: Primary attention capture (works for long reels)
-     * - Rule B: Early detection with light scrolling
-     * - Rule C: Hard fail-safe (must NEVER be escapable)
-     * 
      * @param appPackageName Package name of the app
-     * @param attentionTime Confirmed attention time (from first interaction) in milliseconds
+     * @param scrollTime Active scroll time in milliseconds
+     * @param attentionTime Foreground time with screen ON in milliseconds
      * @param scrollCount Number of scroll events detected
      * @return true if any detection rule is satisfied
      */
     fun checkDetectionRules(
         appPackageName: String,
+        scrollTime: Long,
         attentionTime: Long,
         scrollCount: Int
     ): Boolean {
         
         // Must be a distraction app
         if (!isDistractionApp(appPackageName)) {
-            Log.v(TAG, "Not a distraction app: $appPackageName - skipping detection")
             return false
         }
         
         val threshold = APP_THRESHOLDS[appPackageName] ?: DEFAULT_THRESHOLD_MS
         
-        // Rule C: Hard fail-safe (must NEVER be escapable)
-        if (attentionTime >= HARD_FAIL_SAFE_MS) {
-            Log.i(TAG, "✅ RULE_C_TRIGGERED (Hard Fail-Safe): $appPackageName")
-            Log.i(TAG, "   Attention: ${attentionTime}ms >= ${HARD_FAIL_SAFE_MS}ms")
-            Log.i(TAG, "   Scrolls: $scrollCount (not required for fail-safe)")
+        // Rule 1: Active Scrolling
+        if (scrollTime >= threshold && scrollCount >= MIN_SCROLL_COUNT) {
+            Log.i(TAG, "🚨 DETECTION RULE 1 (Active Scrolling): scrollTime=$scrollTime >= $threshold AND scrollCount=$scrollCount >= $MIN_SCROLL_COUNT")
             return true
         }
         
-        // Rule A: Primary attention capture (PURELY TIME-BASED)
-        // BEHAVIORAL FIX: Removed scroll requirement - time is reliable, scrolls are not
-        // This ensures detection works even if scroll events are missed
-        if (attentionTime >= threshold) {
-            Log.i(TAG, "✅ RULE_A_TRIGGERED (Primary Attention - Time Only): $appPackageName")
-            Log.i(TAG, "   Attention: ${attentionTime}ms >= ${threshold}ms (app threshold)")
-            Log.i(TAG, "   Scrolls: $scrollCount (not required - time is sufficient signal)")
+        // Rule 2: Passive Consumption (reels/shorts)
+        if (attentionTime >= threshold && scrollCount < MIN_SCROLL_COUNT) {
+            Log.i(TAG, "🚨 DETECTION RULE 2 (Passive Consumption): attentionTime=$attentionTime >= $threshold AND scrollCount=$scrollCount < $MIN_SCROLL_COUNT")
             return true
         }
         
-        // Rule B: Early detection with scrolling (scrolls help for early detection only)
-        // Scrolls are OPTIONAL - they only enable earlier detection at half threshold
-        if (attentionTime >= threshold / 2 && scrollCount >= 2) {
-            Log.i(TAG, "✅ RULE_B_TRIGGERED (Early Detection with Scrolls): $appPackageName")
-            Log.i(TAG, "   Attention: ${attentionTime}ms >= ${threshold / 2}ms (half threshold)")
-            Log.i(TAG, "   Scrolls: $scrollCount >= 2 (enables early detection)")
+        // Rule 3: Hybrid Behavior (scroll + watch)
+        if ((scrollTime + attentionTime) >= threshold && scrollCount >= HYBRID_MIN_SCROLL_COUNT) {
+            Log.i(TAG, "🚨 DETECTION RULE 3 (Hybrid): (scrollTime + attentionTime)=${scrollTime + attentionTime} >= $threshold AND scrollCount=$scrollCount >= $HYBRID_MIN_SCROLL_COUNT")
             return true
         }
         
-        Log.v(TAG, "No detection rules met for $appPackageName (AT:${attentionTime}ms, SC:$scrollCount)")
+        Log.v(TAG, "No detection rules met: scrollTime=$scrollTime, attentionTime=$attentionTime, scrollCount=$scrollCount, threshold=$threshold")
         return false
     }
 
@@ -120,33 +113,45 @@ object SessionClassifier {
      * Classify a session as DISTRACTED or NEUTRAL (for database storage).
      * 
      * @param appPackageName Package name of the app
-     * @param attentionTime Confirmed attention time (from first interaction) in milliseconds
+     * @param scrollTime Active scroll time in milliseconds
+     * @param attentionTime Foreground time with screen ON in milliseconds
      * @param scrollCount Number of scroll events detected
      * @return "DISTRACTED" if the session meets any criteria, "NEUTRAL" otherwise
      */
     fun classifySession(
         appPackageName: String,
+        scrollTime: Long,
         attentionTime: Long,
         scrollCount: Int
     ): String {
         
         if (!isDistractionApp(appPackageName)) {
-            Log.d(TAG, "Session classification: NEUTRAL - not a distraction app: $appPackageName")
+            Log.d(TAG, "Not a distraction app: $appPackageName")
             return "NEUTRAL"
         }
         
-        // Use the same detection rules for classification
-        val isDistracted = checkDetectionRules(appPackageName, attentionTime, scrollCount)
+        val threshold = APP_THRESHOLDS[appPackageName] ?: DEFAULT_THRESHOLD_MS
         
-        if (isDistracted) {
-            Log.i(TAG, "📊 SESSION_CLASSIFIED: DISTRACTED")
-            Log.i(TAG, "   App: $appPackageName")
-            Log.i(TAG, "   Attention time: ${attentionTime}ms")
-            Log.i(TAG, "   Scroll count: $scrollCount")
+        // Check all rules
+        val rule1 = scrollTime >= threshold && scrollCount >= MIN_SCROLL_COUNT
+        val rule2 = attentionTime >= threshold && scrollCount < MIN_SCROLL_COUNT
+        val rule3 = (scrollTime + attentionTime) >= threshold && scrollCount >= HYBRID_MIN_SCROLL_COUNT
+        
+        if (rule1 || rule2 || rule3) {
+            val ruleMatched = when {
+                rule1 -> "Active Scrolling (scrollTime >= threshold)"
+                rule2 -> "Passive Consumption (attentionTime >= threshold)"
+                rule3 -> "Hybrid Behavior (combined >= threshold)"
+                else -> "Unknown"
+            }
+            Log.i(TAG, "✅ SESSION_CLASSIFIED: DISTRACTED")
+            Log.i(TAG, "   App: $appPackageName | Rule: $ruleMatched")
+            Log.i(TAG, "   scrollTime: ${scrollTime}ms | attentionTime: ${attentionTime}ms | scrollCount: $scrollCount")
+            Log.i(TAG, "   threshold: ${threshold}ms")
             return "DISTRACTED"
         }
         
-        Log.d(TAG, "📊 SESSION_CLASSIFIED: NEUTRAL - $appPackageName (AT:${attentionTime}ms SC:$scrollCount below thresholds)")
+        Log.d(TAG, "SESSION_CLASSIFIED: NEUTRAL - $appPackageName (ST:${scrollTime}ms AT:${attentionTime}ms SC:$scrollCount, threshold:${threshold}ms)")
         return "NEUTRAL"
     }
 

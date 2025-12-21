@@ -50,30 +50,11 @@ class TrackingForegroundService : Service() {
     private var currentSessionPackage: String? = null
     private var currentSessionStartTime: Long = 0
     private var scrollCount: Int = 0
+    private var scrollTime: Long = 0L  // Time between consecutive scroll events
+    private var attentionTime: Long = 0L  // Total foreground time with screen ON
+    private var lastScrollTimestamp: Long = 0
     private var lastDetectionTimestamp: Long = 0L  // For cooldown mechanism
     private var isScreenOn: Boolean = true  // Track screen state
-    
-    // Confirmed attention state (gated by real user interaction)
-    private var attentionConfirmed: Boolean = false
-    private var firstInteractionTimestamp: Long = 0L  // Timestamp of first interaction (when attention was confirmed)
-    private var lastInteractionTimestamp: Long = 0L  // Timestamp of most recent interaction
-    
-    // BEHAVIORAL FIX: Foreground stability tracking (prevents session fragmentation)
-    // Apps may briefly report different foreground (notifications, system UI) - wait for confirmation
-    private var suspectedForegroundApp: String? = null  // App that might be foreground
-    private var foregroundSuspectStartTime: Long = 0L    // When suspect was first detected
-    private val FOREGROUND_GRACE_WINDOW_MS = 3000L       // 3 seconds to confirm app switch
-    
-    // BEHAVIORAL FIX: Interaction decay tracking (prevents infinite attention)
-    // Attention should pause when user stops interacting (phone sitting idle, passive watching ended)
-    private val INTERACTION_TIMEOUT_MS = 15_000L         // 15 seconds of inactivity pauses attention
-    private var lastActivityTimestamp: Long = 0L         // Last scroll OR touch time
-    
-    // BEHAVIORAL FIX: Detection state (separate from alert cooldown)
-    // Once a session is detected as DISTRACTED, it stays DISTRACTED until session ends
-    // This ensures one browsing period = one DISTRACTED session (not multiple NEUTRAL fragments)
-    private var sessionDetectedAsDistracted: Boolean = false  // Once true, stays true for session
-    private var lastAlertTimestamp: Long = 0L                 // For Toast cooldown only (not detection)
 
     // Broadcast receiver for accessibility events
     private val accessibilityEventReceiver = object : BroadcastReceiver() {
@@ -87,12 +68,7 @@ class TrackingForegroundService : Service() {
                 ScrollDetectionAccessibilityService.ACTION_SCROLL_EVENT -> {
                     handleScrollEvent(packageName, timestamp)
                 }
-                ScrollDetectionAccessibilityService.ACTION_INTERACTION_START -> {
-                    handleInteractionStart(packageName, timestamp)
-                }
-                ScrollDetectionAccessibilityService.ACTION_INTERACTION_END -> {
-                    handleInteractionEnd(packageName, timestamp)
-                }
+                // Interaction events no longer used - attention time tracked via polling
             }
         }
     }
@@ -117,6 +93,7 @@ class TrackingForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "TrackingForegroundService created")
+        serviceInstance = this
 
         // Initialize helpers
         usageStatsHelper = UsageStatsHelper(this)
@@ -144,7 +121,6 @@ class TrackingForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "TrackingForegroundService started")
-        isServiceRunning = true
 
         // Start foreground service with notification
         val notification = createNotification()
@@ -163,7 +139,7 @@ class TrackingForegroundService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.i(TAG, "TrackingForegroundService destroyed")
-        isServiceRunning = false
+        serviceInstance = null
 
         // Stop polling
         stopPolling()
@@ -199,124 +175,138 @@ class TrackingForegroundService : Service() {
 
     /**
      * Check the current foreground app and handle app switches.
-     * BEHAVIORAL FIX: Implements 3-second grace window before confirming app switches.
-     * This prevents session fragmentation from transient UI events (notifications, system dialogs).
+     * Also accumulates attention time for distraction apps.
      */
+    // Session continuity constants
+    private val IDLE_END_THRESHOLD = 5 * 60 * 1000L // 5 minutes - sessions end ONLY after this much inactivity
+    private val ATTENTION_ACCUMULATION_IDLE_LIMIT = 5 * 60 * 1000L // Continue accumulating attention for 5 minutes without scrolls
+
     private fun checkForegroundApp() {
+        val now = System.currentTimeMillis()
         val foregroundApp = usageStatsHelper.getCurrentForegroundApp()
 
-        if (foregroundApp != currentSessionPackage) {
-            // BEHAVIORAL FIX: Don't end session immediately
-            // Check if this is a new suspect or existing suspect confirmation
-            
-            if (foregroundApp == suspectedForegroundApp) {
-                // Same suspect - check if grace period expired
-                val suspectDuration = System.currentTimeMillis() - foregroundSuspectStartTime
-                
-                if (suspectDuration >= FOREGROUND_GRACE_WINDOW_MS) {
-                    // Confirmed app switch - grace period passed
-                    Log.i(TAG, "✅ App switch confirmed after ${suspectDuration}ms grace period")
-                    endCurrentSession(reason = "App switch confirmed: $currentSessionPackage → $foregroundApp")
-                    
-                    // Clear suspect tracking
-                    suspectedForegroundApp = null
-                    foregroundSuspectStartTime = 0L
-                    
-                    // Only start new session if it's a distraction app
-                    if (foregroundApp != null && SessionClassifier.isDistractionApp(foregroundApp)) {
-                        startNewSession(foregroundApp)
-                    }
+        // ═══════════════════════════════════════════════════════════════
+        // CASE 1: UsageStats returned a real app
+        // ═══════════════════════════════════════════════════════════════
+        if (foregroundApp != null) {
+            // Ignore our own package—it's just notification UI, not user's actual foreground app
+            if (foregroundApp == applicationContext.packageName) {
+                Log.v(TAG, "⏭️  Ignoring own app in foreground (notification UI)")
+                return
+            }
+
+            // REAL app switch (different non-null app)
+            if (currentSessionPackage != null && foregroundApp != currentSessionPackage) {
+                Log.i(TAG, "🔄 Real app switch detected: $currentSessionPackage → $foregroundApp")
+                endCurrentSession(
+                    reason = "User switched to different app: $foregroundApp"
+                )
+
+                if (SessionClassifier.isDistractionApp(foregroundApp)) {
+                    startNewSession(foregroundApp)
+                }
+                return
+            }
+
+            // Same app still foreground → accumulate attention time
+            if (foregroundApp == currentSessionPackage && isScreenOn) {
+                val idleTime = if (lastScrollTimestamp > 0) now - lastScrollTimestamp else 0L
+
+                // ✅ CRITICAL FIX: Continue accumulating attention for up to 5 minutes without scrolls
+                // This supports watching long reels/videos without interaction
+                if (idleTime <= ATTENTION_ACCUMULATION_IDLE_LIMIT) {
+                    attentionTime += POLLING_INTERVAL_MS
+                    Log.v(TAG, "📊 Attention accumulated: ${attentionTime}ms (idle: ${idleTime}ms / ${ATTENTION_ACCUMULATION_IDLE_LIMIT}ms)")
                 } else {
-                    // Still within grace period - keep waiting
-                    Log.v(TAG, "⏳ Grace window active: ${suspectDuration}ms / ${FOREGROUND_GRACE_WINDOW_MS}ms for $foregroundApp")
+                    Log.v(TAG, "⏸️ Idle time exceeded accumulation limit (${idleTime}ms > ${ATTENTION_ACCUMULATION_IDLE_LIMIT}ms) - checking for session end")
+                    
+                    // End session only if idle threshold exceeded
+                    if (idleTime >= IDLE_END_THRESHOLD) {
+                        Log.i(TAG, "⏱️ Session ending due to ${idleTime}ms of inactivity (threshold: ${IDLE_END_THRESHOLD}ms)")
+                        endCurrentSession(
+                            reason = "User idle for ${idleTime / 1000}s (threshold: ${IDLE_END_THRESHOLD / 1000}s)"
+                        )
+                        return
+                    }
                 }
-                
+            }
+
+            checkForDetection()
+            return
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // CASE 2: foregroundApp == null
+        // ✅ CRITICAL FIX: NULL must NEVER end a session by itself
+        // Treat null as "unknown", not "app left"
+        // ═══════════════════════════════════════════════════════════════
+        if (currentSessionPackage != null) {
+            val idleTime = if (lastScrollTimestamp > 0) now - lastScrollTimestamp else 0L
+            
+            Log.v(TAG, "⚠️ Foreground app is null (UsageStats unknown) - session continues (idle: ${idleTime}ms)")
+            
+            // Continue accumulating attention time even when foregroundApp is null
+            // as long as we're within idle limits and screen is on
+            if (isScreenOn && idleTime <= ATTENTION_ACCUMULATION_IDLE_LIMIT) {
+                attentionTime += POLLING_INTERVAL_MS
+                Log.v(TAG, "📊 Attention accumulated during null foreground: ${attentionTime}ms (idle: ${idleTime}ms)")
+            }
+            
+            // Only end session if user has been idle for 5+ minutes
+            if (idleTime >= IDLE_END_THRESHOLD) {
+                Log.i(TAG, "⏱️ Session ending due to ${idleTime}ms of inactivity during null foreground (threshold: ${IDLE_END_THRESHOLD}ms)")
+                endCurrentSession(
+                    reason = "User idle for ${idleTime / 1000}s with unknown foreground app"
+                )
             } else {
-                // New suspect detected - start grace window
-                suspectedForegroundApp = foregroundApp
-                foregroundSuspectStartTime = System.currentTimeMillis()
-                Log.d(TAG, "🔍 Suspected foreground change to $foregroundApp - starting ${FOREGROUND_GRACE_WINDOW_MS}ms grace window")
-            }
-            
-        } else {
-            // Foreground matches current session - cancel any pending suspect
-            if (suspectedForegroundApp != null) {
-                Log.d(TAG, "↩️  False alarm - app returned to $currentSessionPackage, canceling grace window")
-                suspectedForegroundApp = null
-                foregroundSuspectStartTime = 0L
-            }
-            
-            // Same distraction app still in foreground with screen ON
-            if (foregroundApp != null && SessionClassifier.isDistractionApp(foregroundApp) && isScreenOn) {
-                // Only check for detection if attention is confirmed (user has interacted)
-                if (attentionConfirmed) {
-                    checkForDetection()
-                }
+                Log.v(TAG, "✅ Session continues despite null foreground (idle: ${idleTime}ms < threshold: ${IDLE_END_THRESHOLD}ms)")
             }
         }
     }
-
     /**
      * Start a new session for the given app.
-     * Session object starts on foreground, but attention remains inactive until interaction.
      */
-    private fun startNewSession(packageName: String) {
-        currentSessionPackage = packageName
-        currentSessionStartTime = System.currentTimeMillis()
-        scrollCount = 0
-        attentionConfirmed = false
-        firstInteractionTimestamp = 0L
-        lastInteractionTimestamp = 0L
+ private fun startNewSession(packageName: String) {
+    currentSessionPackage = packageName
+    currentSessionStartTime = System.currentTimeMillis()
+    scrollCount = 0
+    scrollTime = 0L
+    attentionTime = 0L
+    lastScrollTimestamp = 0L
 
-        Log.i(TAG, "📱 FOREGROUND_DETECTED: $packageName at ${currentSessionStartTime}")
-        Log.i(TAG, "⏸️  ATTENTION_NOT_CONFIRMED: Waiting for user interaction (touch/scroll)...")
-    }
+    Log.i(TAG, "========================================")
+    Log.i(TAG, "📱 SESSION_STARTED: $packageName")
+    Log.i(TAG, "   startTime: ${currentSessionStartTime}ms")
+    Log.i(TAG, "   scrollCount: 0, scrollTime: 0ms, attentionTime: 0ms")
+    Log.i(TAG, "========================================")
+}
+
 
     /**
      * End the current session, classify it, and save to database.
-     * Only saves sessions with confirmed attention and minimum duration.
      */
     private fun endCurrentSession(reason: String = "Unknown") {
         val packageName = currentSessionPackage ?: return
         
         val endTime = System.currentTimeMillis()
-        // Calculate attention time based on confirmed interaction
-        // This represents time the user's attention was captured by the distraction app
-        val attentionTime = calculateAttentionTime()
+        val totalTime = scrollTime + attentionTime
+        val durationSeconds = totalTime / 1000
 
-        // Only save sessions with confirmed attention and minimum duration (3 seconds)
-        // This removes accidental opens, unlock artifacts, and background foreground noise
-        if (!attentionConfirmed) {
-            val foregroundTime = endTime - currentSessionStartTime
-            Log.i(TAG, "❌ ATTENTION_IGNORED: $packageName - NO user interaction detected")
-            Log.i(TAG, "   Foreground time: ${foregroundTime}ms (ignored - no touch/scroll)")
-            Log.i(TAG, "   Session discard reason: $reason")
+        // Only save sessions longer than 1 second
+        if (totalTime < 1000) {
+            Log.w(TAG, "⚠️ SESSION_DISCARDED: $packageName | Duration: ${durationSeconds}s (too short) | Reason: $reason")
+            Log.w(TAG, "   scrollTime: ${scrollTime}ms, attentionTime: ${attentionTime}ms, scrolls: $scrollCount")
             resetSessionState()
             return
         }
 
-        if (attentionTime < 3000L) {
-            Log.i(TAG, "❌ SESSION_DISCARDED: $packageName - attention too brief")
-            Log.i(TAG, "   Attention time: ${attentionTime}ms < 3000ms (minimum threshold)")
-            Log.i(TAG, "   Session discard reason: $reason")
-            resetSessionState()
-            return
-        }
-
-        
         // Classify the session
-        // BEHAVIORAL FIX: Use detection state - if session was marked DISTRACTED, stay DISTRACTED
-        // This ensures one browsing period = one DISTRACTED session (not multiple NEUTRAL fragments)
-        val classification = if (sessionDetectedAsDistracted) {
-            Log.i(TAG, "Using detection state: session was marked DISTRACTED during use")
-            "DISTRACTED"
-        } else {
-            SessionClassifier.classifySession(
-                appPackageName = packageName,
-                attentionTime = attentionTime,
-                scrollCount = scrollCount
-            )
-        }
+        val classification = SessionClassifier.classifySession(
+            packageName,
+            scrollTime,
+            attentionTime,
+            scrollCount
+        )
 
         // Create session object
         val session = AppSession(
@@ -324,26 +314,26 @@ class TrackingForegroundService : Service() {
             appLabel = usageStatsHelper.getAppLabel(packageName),
             startTime = currentSessionStartTime,
             endTime = endTime,
-            durationMillis = attentionTime,  // Total engagement time
+            durationMillis = totalTime,  // Total engagement time (must be non-zero)
             scrollCount = scrollCount,
             classification = classification
         )
 
-        // Log session end with detailed metrics
-        val foregroundTime = endTime - currentSessionStartTime
-        Log.i(TAG, "✅ SESSION_SAVED: $packageName ($classification)")
-        Log.i(TAG, "   Attention time: ${attentionTime}ms (confirmed interaction)")
-        Log.i(TAG, "   Foreground time: ${foregroundTime}ms (includes pre-interaction)")
-        Log.i(TAG, "   Scroll count: $scrollCount")
-        Log.i(TAG, "   End reason: $reason")
+        // Log session end with detailed info
+        Log.i(TAG, "========================================")
+        Log.i(TAG, "✅ SESSION_ENDED: $packageName ($classification)")
+        Log.i(TAG, "   Duration: ${durationSeconds}s (${totalTime}ms)")
+        Log.i(TAG, "   scrollTime: ${scrollTime}ms | attentionTime: ${attentionTime}ms | scrollCount: $scrollCount")
+        Log.i(TAG, "   Reason: $reason")
+        Log.i(TAG, "========================================")
 
         // Save to database (async)
         serviceScope.launch(Dispatchers.IO) {
             try {
                 sessionRepository.insertSession(session)
-                Log.i(TAG, "✅ SESSION_SAVED: $packageName, ${attentionTime}ms, $classification")
+                Log.i(TAG, "💾 Session saved to database: $packageName, ${durationSeconds}s, $classification")
             } catch (e: Exception) {
-                Log.e(TAG, "Error saving session", e)
+                Log.e(TAG, "❌ Error saving session: $packageName", e)
             }
         }
 
@@ -352,195 +342,102 @@ class TrackingForegroundService : Service() {
 
     /**
      * Reset session state variables.
-     * BEHAVIORAL FIX: Includes new state variables for decay and detection.
      */
     private fun resetSessionState() {
         currentSessionPackage = null
         currentSessionStartTime = 0
         scrollCount = 0
-        attentionConfirmed = false
-        firstInteractionTimestamp = 0L
-        lastInteractionTimestamp = 0L
-        lastActivityTimestamp = 0L  // BEHAVIORAL FIX: Reset for interaction decay
-        sessionDetectedAsDistracted = false  // BEHAVIORAL FIX: Reset detection state
-        // Note: Don't reset foreground suspect tracking (suspectedForegroundApp, foregroundSuspectStartTime)
-        // as it spans sessions to maintain grace window across session boundaries
-    }
-
-    /**
-     * Handle interaction start event from AccessibilityService.
-     * This confirms that user attention is engaged.
-     */
-    private fun handleInteractionStart(packageName: String, timestamp: Long) {
-        if (packageName == currentSessionPackage) {
-            if (!attentionConfirmed) {
-                val foregroundDuration = timestamp - currentSessionStartTime
-                attentionConfirmed = true
-                firstInteractionTimestamp = timestamp
-                lastInteractionTimestamp = timestamp
-                lastActivityTimestamp = timestamp  // BEHAVIORAL FIX: Track for interaction decay
-                Log.i(TAG, "✅ ATTENTION_CONFIRMED: $packageName - first touch interaction")
-                Log.i(TAG, "   Foreground duration before interaction: ${foregroundDuration}ms (not counted)")
-                Log.i(TAG, "   Attention timer starts NOW at timestamp: $timestamp")
-            } else {
-                // Update last interaction timestamp for tracking most recent interaction
-                lastInteractionTimestamp = timestamp
-                lastActivityTimestamp = timestamp  // BEHAVIORAL FIX: Track for interaction decay
-                Log.d(TAG, "Touch interaction continued in $packageName")
-            }
-            
-            // Check for detection after interaction starts
-            checkForDetection()
-        }
-    }
-
-    /**
-     * Handle interaction end event from AccessibilityService.
-     * Note: We don't reset attentionConfirmed here - attention continues until session ends.
-     */
-    private fun handleInteractionEnd(packageName: String, timestamp: Long) {
-        if (packageName == currentSessionPackage) {
-            // Interaction ended, but attention may continue (e.g., watching a reel)
-            // We keep lastInteractionTimestamp as the last known interaction point
-            Log.d(TAG, "Interaction ended in $packageName at $timestamp (attention continues)")
-        }
+        scrollTime = 0L
+        attentionTime = 0L
+        lastScrollTimestamp = 0
     }
 
     /**
      * Handle scroll event from AccessibilityService.
-     * Scrolls are events, not durations.
-     * Scrolls also confirm attention if not already confirmed.
+     * Accumulates scroll time using delta between consecutive scroll events.
      */
     private fun handleScrollEvent(packageName: String, timestamp: Long) {
-        if (packageName == currentSessionPackage) {
-            scrollCount++
-            
-            // Scroll is also an interaction - confirm attention if not already confirmed
-            if (!attentionConfirmed) {
-                val foregroundDuration = timestamp - currentSessionStartTime
-                attentionConfirmed = true
-                firstInteractionTimestamp = timestamp
-                lastInteractionTimestamp = timestamp
-                lastActivityTimestamp = timestamp  // BEHAVIORAL FIX: Track for interaction decay
-                Log.i(TAG, "✅ ATTENTION_CONFIRMED: $packageName - first scroll detected")
-                Log.i(TAG, "   Foreground duration before scroll: ${foregroundDuration}ms (not counted)")
-                Log.i(TAG, "   Attention timer starts NOW at timestamp: $timestamp")
+
+        // Bootstrap session from scroll if not already started
+        // Scroll events often arrive before UsageStats stabilizes
+        if (currentSessionPackage == null) {
+            if (SessionClassifier.isDistractionApp(packageName)) {
+                Log.i(TAG, "🎬 [SESSION START] Bootstrapping from scroll event: $packageName")
+                startNewSession(packageName)
             } else {
-                // Update last interaction timestamp
-                lastInteractionTimestamp = timestamp
-                lastActivityTimestamp = timestamp  // BEHAVIORAL FIX: Track for interaction decay
+                Log.v(TAG, "⏭️  Scroll ignored: $packageName is not a distraction app")
+                return
             }
-            
-            // Check for detection after each scroll
-            checkForDetection()
-            
-            val attentionTime = calculateAttentionTime()
-            Log.d(TAG, "📊 $packageName - Scroll #$scrollCount | Attention: ${attentionTime}ms")
         }
+
+    // Ignore scrolls from non-session apps (only possible if session switched)
+    if (packageName != currentSessionPackage) {
+        Log.w(TAG, "⚠️ Scroll ignored (app mismatch): scroll=$packageName, session=$currentSessionPackage")
+        return
     }
 
-    /**
-     * Calculate attention time based on confirmed interaction.
-     * BEHAVIORAL FIX: Implements interaction decay - attention pauses after 15s of inactivity.
-     * This prevents infinite attention when user stops watching or phone sits idle.
-     * 
-     * Attention time is gated by real user interaction and pauses during inactivity periods.
-     */
-    private fun calculateAttentionTime(): Long {
-        if (!attentionConfirmed || firstInteractionTimestamp == 0L || !isScreenOn) {
-            return 0L
+        scrollCount++
+
+        // Accumulate scroll time using deltas between consecutive scrolls
+        if (lastScrollTimestamp > 0) {
+            val delta = timestamp - lastScrollTimestamp
+            scrollTime += delta
+            Log.v(TAG, "⏱️  Scroll delta: ${delta}ms (total scrollTime=${scrollTime}ms)")
+        } else {
+            Log.i(TAG, "⏱️  First scroll detected (timestamp=${timestamp}ms)")
         }
-        
-        val now = System.currentTimeMillis()
-        val timeSinceLastActivity = now - lastActivityTimestamp
-        
-        // BEHAVIORAL FIX: Pause attention after 15s of inactivity
-        // This prevents infinite attention when user stops interacting
-        if (timeSinceLastActivity > INTERACTION_TIMEOUT_MS) {
-            // User has been inactive - calculate attention up to last activity only
-            val attentionTime = lastActivityTimestamp - firstInteractionTimestamp
-            Log.v(TAG, "⏸️  Attention paused: inactive for ${timeSinceLastActivity}ms (timeout: ${INTERACTION_TIMEOUT_MS}ms)")
-            return maxOf(0L, attentionTime)  // Ensure non-negative
-        }
-        
-        // Active interaction - return current attention time
-        val attentionTime = now - firstInteractionTimestamp
-        return maxOf(0L, attentionTime)  // Ensure non-negative
+        lastScrollTimestamp = timestamp
+
+        // Trigger detection check after scroll
+        checkForDetection()
+
+        // Log comprehensive session state after each scroll
+        Log.d(
+            TAG,
+            "📊 [SCROLL] $packageName | #$scrollCount | scrollTime=${scrollTime}ms | attentionTime=${attentionTime}ms | total=${scrollTime + attentionTime}ms"
+        )
     }
 
     /**
      * Check if current metrics satisfy any detection rule.
-     * BEHAVIORAL FIX: Separates detection state from alert cooldown.
-     * Once a session is detected as DISTRACTED, it stays DISTRACTED until session ends.
-     * This ensures one browsing period = one DISTRACTED session (not multiple NEUTRAL fragments).
+     * Implements cooldown to prevent rapid re-detection.
      */
     private fun checkForDetection() {
         val packageName = currentSessionPackage ?: return
         
-        // Only check detection if attention is confirmed
-        // This prevents false positives from foreground-only time
-        if (!attentionConfirmed) {
-            Log.v(TAG, "⏸️  Detection check skipped: $packageName - no interaction yet")
-            return  // No attention confirmed yet, skip detection
+        // Check cooldown
+        val now = System.currentTimeMillis()
+        val timeSinceLastDetection = now - lastDetectionTimestamp
+        if (lastDetectionTimestamp > 0 && timeSinceLastDetection < DETECTION_COOLDOWN_MS) {
+            return  // Still in cooldown
         }
         
-        val attentionTime = calculateAttentionTime()
+        // Check if any detection rule is satisfied
+        val isDistracted = SessionClassifier.checkDetectionRules(
+            packageName,
+            scrollTime,
+            attentionTime,
+            scrollCount
+        )
         
-        // BEHAVIORAL FIX: Once detected as DISTRACTED, session stays DISTRACTED
-        // This ensures session continuity even with repeated checks
-        if (!sessionDetectedAsDistracted) {
-            // Not yet detected - check detection rules
-            val isDistracted = SessionClassifier.checkDetectionRules(
-                appPackageName = packageName,
-                attentionTime = attentionTime,
-                scrollCount = scrollCount
-            )
+        if (isDistracted) {
+            lastDetectionTimestamp = now
             
-            if (isDistracted) {
-                // Mark session as permanently DISTRACTED
-                sessionDetectedAsDistracted = true
-                
-                Log.i(TAG, "🚨 SESSION_MARKED_DISTRACTED: $packageName")
-                Log.i(TAG, "   Attention time: ${attentionTime}ms")
-                Log.i(TAG, "   Scroll count: $scrollCount")
-                Log.i(TAG, "   ✅ Session will remain DISTRACTED until it ends")
-                
-                // Show first alert immediately
-                showDistractionAlert(packageName, attentionTime)
-            }
-        } else {
-            // Already detected as DISTRACTED - only show periodic alerts if cooldown expired
-            // BEHAVIORAL FIX: Cooldown applies ONLY to alerts, not detection state
-            val now = System.currentTimeMillis()
-            val timeSinceLastAlert = now - lastAlertTimestamp
+            val appLabel = usageStatsHelper.getAppLabel(packageName)
+            val totalTime = (scrollTime + attentionTime) / 1000 // Convert to seconds
             
-            if (timeSinceLastAlert >= DETECTION_COOLDOWN_MS) {
-                Log.d(TAG, "🔔 Periodic alert: session still DISTRACTED (cooldown expired)")
-                showDistractionAlert(packageName, attentionTime)
-            } else {
-                Log.v(TAG, "🔕 Alert suppressed: cooldown active (${timeSinceLastAlert}ms / ${DETECTION_COOLDOWN_MS}ms)")
+            Log.i(TAG, "🚨 DISTRACTED DETECTION:  $packageName - scrollTime:${scrollTime}ms, attentionTime:${attentionTime}ms, scrolls:$scrollCount")
+            
+            // Show Toast notification to user
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(
+                    this,
+                    "⚠️ Distracted on $appLabel (${totalTime}s, $scrollCount scrolls)",
+                    Toast.LENGTH_LONG
+                ).show()
             }
-        }
-    }
-    
-    /**
-     * Show distraction alert to user (Toast notification).
-     * BEHAVIORAL FIX: Separated from detection logic - this only shows UI, doesn't affect state.
-     */
-    private fun showDistractionAlert(packageName: String, attentionTime: Long) {
-        val appLabel = usageStatsHelper.getAppLabel(packageName)
-        val totalTime = attentionTime / 1000  // Convert to seconds
-        
-        lastAlertTimestamp = System.currentTimeMillis()
-        
-        Log.i(TAG, "🔔 SHOWING_ALERT: $packageName (${totalTime}s, $scrollCount scrolls)")
-        
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(
-                this,
-                "⚠️ Distracted on $appLabel (${totalTime}s, $scrollCount scrolls)",
-                Toast.LENGTH_LONG
-            ).show()
+            
+            // DO NOT reset counters - session continues
         }
     }
 
@@ -594,16 +491,7 @@ class TrackingForegroundService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val POLLING_INTERVAL_MS = 1000L // 1 second
         private const val DETECTION_COOLDOWN_MS = 60_000L // 60 seconds between detections
-        
-        @Volatile
-        private var isServiceRunning = false
-
-        /**
-         * Check if the tracking service is currently running.
-         */
-        fun isRunning(): Boolean {
-            return isServiceRunning
-        }
+        private var serviceInstance: TrackingForegroundService? = null
 
         /**
          * Start the tracking service.
@@ -623,6 +511,13 @@ class TrackingForegroundService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, TrackingForegroundService::class.java)
             context.stopService(intent)
+        }
+
+        /**
+         * Check if the tracking service is currently running.
+         */
+        fun isRunning(): Boolean {
+            return serviceInstance != null
         }
     }
 }
