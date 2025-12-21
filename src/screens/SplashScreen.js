@@ -29,6 +29,7 @@ const SplashScreen = ({ onFinish }) => {
           style={styles.logo}
         />
 
+        <Text style={styles.appName}>AttentionOS</Text>
         {/* Quote */}
         <Text style={styles.quote}>
           “The secret of change is to focus all your energy not on fighting the
@@ -63,10 +64,19 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    width: 80,
-    height: 80,
+    width: 211,
+    height: 211,
     resizeMode: 'contain',
-    marginBottom: 12,
+  },
+
+  appName: {
+    color: 'black',
+    fontSize: 24,
+    fontFamily: 'Poppins',
+    fontWeight: '800',
+    wordWrap: 'break-word',
+    marginTop: -60,
+    marginBottom: 32,
   },
 
   appName: {

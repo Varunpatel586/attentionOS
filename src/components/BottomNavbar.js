@@ -46,21 +46,13 @@ const BottomNavbar = props => {
             color={currentIndex === 2 ? '#000' : '#FFF'}
           />
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={currentIndex === 3 ? styles.activeIcon : styles.icon}
-          onPress={() => navigation.navigate('Tracking')}
-        >
-          <Ionicons
-            name="eye-outline"
-            size={22}
-            color={currentIndex === 3 ? '#000' : '#FFF'}
-          />
-        </TouchableOpacity>
       </View>
 
       {/* Floating action button */}
-      <TouchableOpacity style={styles.fab} onPress={() => auth().signOut()}>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('ToDoEdit')}
+      >
         <Ionicons name="create-outline" size={22} color="#FFF" />
       </TouchableOpacity>
     </View>

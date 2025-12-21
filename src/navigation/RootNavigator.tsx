@@ -3,8 +3,8 @@ import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
-import AppTabs from './AppTabs';
 import SplashScreen from '../screens/SplashScreen';
+import AppStack from './AppStack';
 
 const RootNavigator = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -42,7 +42,7 @@ const RootNavigator = () => {
   }
 
   // Logged-in app
-  return <AppTabs />;
+  return <AppStack />;
 };
 
 export default RootNavigator;
