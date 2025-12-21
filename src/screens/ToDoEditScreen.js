@@ -1,329 +1,345 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  StyleSheet,
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  Dimensions,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 
-const { height } = Dimensions.get('window');
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import DatePicker from 'react-native-date-picker'; //
 
-/**
- * CALENDAR ICON
- */
-const CustomCalendarIcon = () => (
-  <View style={styles.calWrapper}>
-    <View style={styles.calRingsRow}>
-      <View style={styles.calRing} />
-      <View style={styles.calRing} />
-    </View>
-    <View style={styles.calMainBox}>
-      <View style={styles.calHeaderLine} />
-    </View>
-  </View>
-);
+const ToDoEditScreen = ({ route, navigation }) => {
+  const { todoId } = route.params ?? {};
+  const user = auth().currentUser;
 
-/**
- * EXACT PENCIL-IN-BOX ICON (FAB)
- * Matches provided image
- */
-const CustomEditIcon = () => (
-  <View style={styles.editIconWrapper}>
-    <View style={styles.editSquare}>
-      <View style={styles.pencilWrapper}>
-        <View style={styles.pencilBody} />
-        <View style={styles.pencilTip} />
-      </View>
-    </View>
-  </View>
-);
+  // 1. ALL HOOKS MUST REMAIN AT THE TOP OF THE COMPONENT
+  const [exists, setExists] = useState(false);
+  const [title, setTitle] = useState('');
+  const [taskGroup, setTaskGroup] = useState('');
+  const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false); //
 
-const ToDoEditScreen = () => {
+  const userRef = firestore().collection('users').doc(user?.uid);
+  const todoRef = userRef.collection('todos').doc(todoId || 'temp');
+
+  useEffect(() => {
+    if (!todoId || !user) return;
+    
+    const unsub = todoRef.onSnapshot(doc => {
+      if (doc.exists) {
+        const data = doc.data();
+        setExists(true);
+        setTitle(data.title || '');
+        setTaskGroup(data.taskGroup || '');
+        setDescription(data.description || '');
+        setDueDate(data.dueDate?.toDate() || null);
+      }
+    });
+    return unsub;
+  }, [todoId, user]);
+
+  const handleSave = async () => {
+    if (!title.trim()) return Alert.alert('Error', 'Task title is required');
+    try {
+      const data = {
+        title: title.trim(),
+        taskGroup: taskGroup.trim(),
+        description: description.trim(),
+        dueDate: dueDate ? firestore.Timestamp.fromDate(dueDate) : null,
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      };
+
+      if (exists) {
+        await todoRef.update(data);
+      } else {
+        await userRef.collection('todos').add({ 
+          ...data, 
+          completed: false, 
+          createdAt: firestore.FieldValue.serverTimestamp() 
+        });
+      }
+      navigation.goBack();
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Failed to save task');
+    }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert("Delete Task", "Are you sure you want to remove this task?", [
+      { text: "Cancel", style: "cancel" },
+      { 
+        text: "Delete", 
+        style: "destructive", 
+        onPress: () => todoRef.delete().then(() => navigation.goBack()) 
+      }
+    ]);
+  };
+
+  // Helper date logic
+  const isToday = dueDate?.toDateString() === new Date().toDateString();
+  const isTomorrow = dueDate?.toDateString() === new Date(Date.now() + 86400000).toDateString();
+  const isCustomDate = dueDate && !isToday && !isTomorrow;
+
+  // 2. RENDER CHECK MUST HAPPEN AFTER ALL HOOKS
+  if (!user) return null;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{flex: 1}}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent} 
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.headerTitle}>{exists ? 'Edit task' : 'New task'}</Text>
 
-      {/* Mock Status Bar */}
-      <View style={styles.deviceStatus}>
-        <Text style={styles.statusBold}>11:30</Text>
-        <Text style={styles.statusBold}>📶 🔋</Text>
-      </View>
+          <View style={styles.mainCard}>
+            <TextInput
+              style={styles.pillInput}
+              placeholder="Task title"
+              placeholderTextColor="#999"
+              value={title}
+              onChangeText={setTitle}
+            />
 
-      <Text style={styles.screenTitle}>Edit task</Text>
+            <TextInput
+              style={styles.pillInput}
+              placeholder="Task group"
+              placeholderTextColor="#999"
+              value={taskGroup}
+              onChangeText={setTaskGroup}
+            />
 
-      <View style={styles.mainPadding}>
-        <View style={styles.taskCard}>
-          <TextInput
-            style={styles.pillInput}
-            placeholder="Task title"
-            placeholderTextColor="#8C8C8C"
-          />
+            <View style={styles.dateRow}>
+              <TouchableOpacity 
+                style={[styles.datePill, isToday && styles.activePill]}
+                onPress={() => setDueDate(new Date())}
+              >
+                <Text style={[styles.dateText, isToday && styles.activeText]}>Today</Text>
+              </TouchableOpacity>
 
-          <TextInput
-            style={styles.pillInput}
-            placeholder="Task group"
-            placeholderTextColor="#8C8C8C"
-          />
+              <TouchableOpacity 
+                style={[styles.datePill, styles.tomorrowPill, isTomorrow && styles.activePill]}
+                onPress={() => setDueDate(new Date(Date.now() + 86400000))}
+              >
+                <Text style={[styles.dateText, isTomorrow && styles.activeText]}>Tomorrow</Text>
+              </TouchableOpacity>
 
-          {/* Date Selector */}
-          <View style={styles.selectorRow}>
-            <TouchableOpacity style={styles.blackPill}>
-              <Text style={styles.pillText}>Today</Text>
-            </TouchableOpacity>
+              {/* DYNAMIC CIRCULAR CALENDAR BUTTON */}
+              <TouchableOpacity 
+                style={[styles.calendarCircleBtn, isCustomDate && styles.activePill]} 
+                activeOpacity={0.7}
+                onPress={() => setPickerOpen(true)} //
+              >
+                {isCustomDate ? (
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '700', marginBottom: -2 }}>
+                      {dueDate.toLocaleString('default', { month: 'short' }).toUpperCase()}
+                    </Text>
+                    <Text style={{ color: '#FFF', fontSize: 18, fontWeight: 'bold' }}>
+                      {dueDate.getDate()}
+                    </Text>
+                  </View>
+                ) : (
+                  <Icon name="calendar-blank-outline" size={26} color="#FFF" />
+                )}
+              </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity style={styles.blackPill}>
-              <Text style={styles.pillText}>Tomorrow</Text>
-            </TouchableOpacity>
+            <TextInput
+              style={styles.descriptionBox}
+              placeholder="Description"
+              placeholderTextColor="#999"
+              multiline
+              value={description}
+              onChangeText={setDescription}
+            />
 
-            <TouchableOpacity style={styles.calendarCircle}>
-              <CustomCalendarIcon />
-            </TouchableOpacity>
+            <View style={styles.actionContainer}>
+              <TouchableOpacity style={styles.createBtn} onPress={handleSave}>
+                <Text style={styles.createBtnText}>{exists ? 'Update' : 'Create'}</Text>
+              </TouchableOpacity>
+
+              {exists && (
+                <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete}>
+                  <Text style={styles.deleteBtnText}>Delete</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-          <TextInput
-            style={[styles.pillInput, styles.descriptionInput]}
-            placeholder="Description"
-            placeholderTextColor="#8C8C8C"
-            multiline
-          />
+      {/* NATIVE GOOGLE CALENDAR LOOK FOR ANDROID */}
+      <DatePicker
+        modal
+        open={pickerOpen}
+        date={dueDate || new Date()} 
+        mode="date" //
+        androidVariant="calendar" // FORCES CALENDAR MODE
+        theme="light"
+        onConfirm={(date) => {
+          setPickerOpen(false);
+          setDueDate(date); //
+        }}
+        onCancel={() => {
+          setPickerOpen(false);
+        }}
+      />
 
-          {/* Action Buttons */}
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={[styles.btn, styles.btnCreate]}>
-              <Text style={styles.txtWhite}>Create</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.btn, styles.btnDelete]}>
-              <Text style={styles.txtDark}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      <View style={styles.exitFabContainer}>
+        <TouchableOpacity 
+          style={styles.exitFab} 
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Icon name="close" size={30} color="#FFF" />
+        </TouchableOpacity>
       </View>
-
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab}>
-        <CustomEditIcon />
-      </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#F3F2E7',
+    backgroundColor: '#F5F3ED', 
   },
-
-  deviceStatus: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 40,
-    paddingTop: 10,
-    marginBottom: 20,
-  },
-
-  statusBold: {
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-
-  screenTitle: {
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#242424',
-    marginBottom: 25,
-  },
-
-  mainPadding: {
+  scrollContent: {
     paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 120,
+    alignItems: 'center',
   },
-
-  /* Card */
-  taskCard: {
-    backgroundColor: '#EAE8D9',
-    borderRadius: 45,
-    padding: 25,
-    height: height * 0.65,
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 30,
   },
-
+  mainCard: {
+    backgroundColor: '#EBE8E0', 
+    width: '100%',
+    borderRadius: 40,
+    padding: 20,
+    gap: 15,
+  },
   pillInput: {
-    backgroundColor: '#F3F2E7',
-    borderRadius: 25,
-    paddingHorizontal: 22,
-    paddingVertical: 16,
-    fontSize: 16,
-    marginBottom: 12,
-  },
-
-  descriptionInput: {
-    height: 140,
-    textAlignVertical: 'top',
+    backgroundColor: '#F5F3EF',
+    height: 60,
     borderRadius: 30,
+    paddingHorizontal: 25,
+    fontSize: 16,
+    color: '#000',
   },
-
-  /* Date Selector */
-  selectorRow: {
+  dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 12,
   },
-
-  blackPill: {
-    backgroundColor: '#2D2D2D',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-  },
-
-  pillText: {
-    color: 'white',
-    fontWeight: '500',
-  },
-
-  calendarCircle: {
-    backgroundColor: '#2D2D2D',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  datePill: {
+    flex: 1,
+    height: 60,
+    backgroundColor: '#262626',
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  /* Calendar Icon */
-  calWrapper: {
-    width: 24,
-    height: 22,
+  tomorrowPill: {
+    flex: 1.5,
+  },
+  activePill: {
+    backgroundColor: '#000',
+    borderWidth: 1.5,
+    borderColor: '#FFF',
+  },
+  calendarCircleBtn: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#262626',
+    borderRadius: 30, 
+    justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
-
-  calRingsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: 14,
-    marginBottom: -4,
-    zIndex: 1,
+  dateText: {
+    color: '#999',
+    fontWeight: '600',
   },
-
-  calRing: {
-    width: 2.5,
-    height: 6,
-    backgroundColor: 'white',
-    borderRadius: 1.5,
+  activeText: {
+    color: '#FFF',
   },
-
-  calMainBox: {
-    width: 22,
-    height: 18,
-    borderWidth: 2.5,
-    borderColor: 'white',
-    borderRadius: 4,
-  },
-
-  calHeaderLine: {
-    height: 2.5,
-    backgroundColor: 'white',
-    width: '100%',
-    marginTop: 4,
-  },
-
-  /* Buttons */
-  actionRow: {
-    marginTop: 'auto',
-    alignItems: 'center',
-    gap: 10,
-  },
-
-  btn: {
-    width: 135,
-    paddingVertical: 14,
+  descriptionBox: {
+    backgroundColor: '#F5F3EF',
     borderRadius: 30,
+    padding: 25,
+    height: 150,
+    textAlignVertical: 'top',
+    fontSize: 16,
+    color: '#000',
+  },
+  actionContainer: {
+    marginTop: 10,
+    gap: 12,
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
   },
-
-  btnCreate: {
-    backgroundColor: '#2D2D2D',
+  createBtn: {
+    backgroundColor: '#1A1A1A',
+    width: '100%',
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-
-  btnDelete: {
-    backgroundColor: '#F3F2E7',
+  createBtnText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '700',
   },
-
-  txtWhite: {
-    color: 'white',
-    fontWeight: 'bold',
+  deleteBtn: {
+    backgroundColor: '#F5F3EF',
+    width: '100%',
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1CEC7',
   },
-
-  txtDark: {
-    color: '#2D2D2D',
-    fontWeight: 'bold',
+  deleteBtnText: {
+    color: '#E35D5D',
+    fontSize: 16,
+    fontWeight: '600',
   },
-
-  /* FAB */
-  fab: {
+  exitFabContainer: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 30,
     right: 30,
+    borderRadius: 35,
+    overflow: 'hidden',
+  },
+  exitFab: {
     width: 70,
     height: 70,
-    borderRadius: 35,
-    borderWidth: 3,
-    borderColor: '#2D2D2D',
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  editIconWrapper: {
-    width: 26,
-    height: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  editSquare: {
-    width: 24,
-    height: 24,
-    borderWidth: 2.5,
-    borderColor: '#2D2D2D',
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  pencilWrapper: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    transform: [{ rotate: '-45deg' }],
-  },
-
-  pencilBody: {
-    width: 14,
-    height: 4,
-    backgroundColor: '#2D2D2D',
-    borderTopLeftRadius: 2,
-    borderBottomLeftRadius: 2,
-  },
-
-  pencilTip: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
-    borderLeftWidth: 4,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#2D2D2D',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
 });
 
