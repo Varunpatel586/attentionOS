@@ -1,273 +1,329 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
+  StyleSheet,
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
 
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+const { height } = Dimensions.get('window');
 
-const ToDoEditScreen = ({ route, navigation }) => {
-  const { todoId } = route.params ?? {};
-  const user = auth().currentUser;
-  const userRef = firestore().collection('users').doc(user.uid);
+/**
+ * CALENDAR ICON
+ */
+const CustomCalendarIcon = () => (
+  <View style={styles.calWrapper}>
+    <View style={styles.calRingsRow}>
+      <View style={styles.calRing} />
+      <View style={styles.calRing} />
+    </View>
+    <View style={styles.calMainBox}>
+      <View style={styles.calHeaderLine} />
+    </View>
+  </View>
+);
 
-  const [exists, setExists] = useState(false);
-  const [title, setTitle] = useState('');
-  const [taskGroup, setTaskGroup] = useState('');
-  const [description, setDescription] = useState('');
-  const [dueDate, setDueDate] = useState(null);
+/**
+ * EXACT PENCIL-IN-BOX ICON (FAB)
+ * Matches provided image
+ */
+const CustomEditIcon = () => (
+  <View style={styles.editIconWrapper}>
+    <View style={styles.editSquare}>
+      <View style={styles.pencilWrapper}>
+        <View style={styles.pencilBody} />
+        <View style={styles.pencilTip} />
+      </View>
+    </View>
+  </View>
+);
 
-  const isEdit = Boolean(todoId);
-
-  if (!user) {
-    return null;
-  }
-
-  const todoRef = firestore()
-    .collection('users')
-    .doc(user.uid)
-    .collection('todos')
-    .doc(todoId);
-
-  // Load todo if it exists
-  useEffect(() => {
-    if (!todoId) return;
-
-    const unsub = todoRef.onSnapshot(doc => {
-      if (doc.exists) {
-        const data = doc.data();
-        setExists(true);
-        setTitle(data.title || '');
-        setTaskGroup(data.taskGroup || '');
-        setDescription(data.description || '');
-        setDueDate(data.dueDate || null);
-      }
-    });
-
-    return unsub;
-  }, []);
-
-  const createTodo = async () => {
-    try {
-      console.log('Creating todo for user:', user.uid);
-
-      const ref = await userRef.collection('todos').add({
-        title,
-        completed: false,
-        promoted: false,
-        taskGroup,
-        dueDate,
-        description,
-        createdAt: new Date(),
-      });
-
-      console.log('Todo created with ID:', ref.id);
-      navigation.goBack();
-    } catch (e) {
-      console.error('FAILED TO CREATE TODO:', e);
-    }
-  };
-
-  const deleteTodo = async () => {
-    await todoRef.delete();
-    navigation.goBack();
-  };
-
+const ToDoEditScreen = () => {
   return (
-    <View style={styles.container}>
-      <Text style={styles.topText}>Edit Task</Text>
-      <Text style={styles.label}>Title</Text>
-      <TextInput value={title} onChangeText={setTitle} style={styles.input} />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" />
 
-      <Text style={styles.label}>Task Group</Text>
-      <TextInput
-        value={taskGroup}
-        onChangeText={setTaskGroup}
-        style={styles.input}
-      />
-
-      <Text style={styles.label}>Description</Text>
-      <TextInput
-        value={description}
-        onChangeText={setDescription}
-        style={[styles.input, { height: 100 }]}
-        multiline
-      />
-
-      {/* DATE BUTTONS (simple version) */}
-      <View style={styles.dateRow}>
-        <TouchableOpacity onPress={() => setDueDate(new Date())}>
-          <Text>Today</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setDueDate(new Date(Date.now() + 24 * 60 * 60 * 1000))}
-        >
-          <Text>Tomorrow</Text>
-        </TouchableOpacity>
+      {/* Mock Status Bar */}
+      <View style={styles.deviceStatus}>
+        <Text style={styles.statusBold}>11:30</Text>
+        <Text style={styles.statusBold}>📶 🔋</Text>
       </View>
 
-      <TouchableOpacity
-        style={[styles.button, exists && styles.disabled]}
-        disabled={exists}
-        onPress={createTodo}
-      >
-        <Text>Create</Text>
-      </TouchableOpacity>
+      <Text style={styles.screenTitle}>Edit task</Text>
 
-      {exists && (
-        <TouchableOpacity style={styles.delete} onPress={deleteTodo}>
-          <Text style={{ color: 'red' }}>Delete</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+      <View style={styles.mainPadding}>
+        <View style={styles.taskCard}>
+          <TextInput
+            style={styles.pillInput}
+            placeholder="Task title"
+            placeholderTextColor="#8C8C8C"
+          />
+
+          <TextInput
+            style={styles.pillInput}
+            placeholder="Task group"
+            placeholderTextColor="#8C8C8C"
+          />
+
+          {/* Date Selector */}
+          <View style={styles.selectorRow}>
+            <TouchableOpacity style={styles.blackPill}>
+              <Text style={styles.pillText}>Today</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.blackPill}>
+              <Text style={styles.pillText}>Tomorrow</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.calendarCircle}>
+              <CustomCalendarIcon />
+            </TouchableOpacity>
+          </View>
+
+          <TextInput
+            style={[styles.pillInput, styles.descriptionInput]}
+            placeholder="Description"
+            placeholderTextColor="#8C8C8C"
+            multiline
+          />
+
+          {/* Action Buttons */}
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={[styles.btn, styles.btnCreate]}>
+              <Text style={styles.txtWhite}>Create</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.btn, styles.btnDelete]}>
+              <Text style={styles.txtDark}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* Floating Action Button */}
+      <TouchableOpacity style={styles.fab}>
+        <CustomEditIcon />
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#F2EFE9',
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    backgroundColor: '#F3F2E7',
   },
 
-  topText: {
-    color: '#000',
-    fontFamily: 'Poppins',
-    fontSize: 18,
-    fontStyle: 'normal',
-    fontWeight: 500,
-    lineHeight: 'normal',
-    justifyContent: 'center',
-    alignContent: 'center',
-  },
-
-  card: {
-    backgroundColor: '#E9E5DC',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 16,
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#444',
-    marginBottom: 6,
-    fontFamily: 'Poppins',
-  },
-
-  input: {
-    backgroundColor: '#F7F5F0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontFamily: 'Poppins',
-    color: '#000',
-  },
-
-  inputMultiline: {
-    height: 120,
-    textAlignVertical: 'top',
-  },
-
-  section: {
+  deviceStatus: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 40,
+    paddingTop: 10,
     marginBottom: 20,
   },
 
-  groupRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-
-  groupButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: '#DCD7CC',
-  },
-
-  groupButtonActive: {
-    backgroundColor: '#262626',
-  },
-
-  groupText: {
+  statusBold: {
+    fontWeight: 'bold',
     fontSize: 14,
-    fontFamily: 'Poppins',
-    color: '#000',
   },
 
-  groupTextActive: {
-    color: '#FFF',
+  screenTitle: {
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#242424',
+    marginBottom: 25,
   },
 
-  dateRow: {
-    flexDirection: 'row',
-    gap: 10,
+  mainPadding: {
+    paddingHorizontal: 20,
   },
 
-  dateButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: '#DCD7CC',
-    alignItems: 'center',
+  /* Card */
+  taskCard: {
+    backgroundColor: '#EAE8D9',
+    borderRadius: 45,
+    padding: 25,
+    height: height * 0.65,
   },
 
-  dateButtonActive: {
-    backgroundColor: '#262626',
-  },
-
-  dateText: {
-    fontSize: 14,
-    fontFamily: 'Poppins',
-    color: '#000',
-  },
-
-  dateTextActive: {
-    color: '#FFF',
-  },
-
-  actions: {
-    marginTop: 'auto',
-    gap: 12,
-  },
-
-  primaryButton: {
-    backgroundColor: '#262626',
+  pillInput: {
+    backgroundColor: '#F3F2E7',
+    borderRadius: 25,
+    paddingHorizontal: 22,
     paddingVertical: 16,
-    borderRadius: 18,
-    alignItems: 'center',
-  },
-
-  primaryButtonDisabled: {
-    backgroundColor: '#999',
-  },
-
-  primaryButtonText: {
-    color: '#FFF',
     fontSize: 16,
-    fontWeight: '500',
-    fontFamily: 'Poppins',
+    marginBottom: 12,
   },
 
-  deleteButton: {
-    backgroundColor: '#E35D5D',
-    paddingVertical: 14,
-    borderRadius: 18,
+  descriptionInput: {
+    height: 140,
+    textAlignVertical: 'top',
+    borderRadius: 30,
+  },
+
+  /* Date Selector */
+  selectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+
+  blackPill: {
+    backgroundColor: '#2D2D2D',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+
+  pillText: {
+    color: 'white',
+    fontWeight: '500',
+  },
+
+  calendarCircle: {
+    backgroundColor: '#2D2D2D',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
   },
 
-  deleteButtonText: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '500',
-    fontFamily: 'Poppins',
+  /* Calendar Icon */
+  calWrapper: {
+    width: 24,
+    height: 22,
+    alignItems: 'center',
+  },
+
+  calRingsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: 14,
+    marginBottom: -4,
+    zIndex: 1,
+  },
+
+  calRing: {
+    width: 2.5,
+    height: 6,
+    backgroundColor: 'white',
+    borderRadius: 1.5,
+  },
+
+  calMainBox: {
+    width: 22,
+    height: 18,
+    borderWidth: 2.5,
+    borderColor: 'white',
+    borderRadius: 4,
+  },
+
+  calHeaderLine: {
+    height: 2.5,
+    backgroundColor: 'white',
+    width: '100%',
+    marginTop: 4,
+  },
+
+  /* Buttons */
+  actionRow: {
+    marginTop: 'auto',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  btn: {
+    width: 135,
+    paddingVertical: 14,
+    borderRadius: 30,
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+
+  btnCreate: {
+    backgroundColor: '#2D2D2D',
+  },
+
+  btnDelete: {
+    backgroundColor: '#F3F2E7',
+  },
+
+  txtWhite: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+
+  txtDark: {
+    color: '#2D2D2D',
+    fontWeight: 'bold',
+  },
+
+  /* FAB */
+  fab: {
+    position: 'absolute',
+    bottom: 40,
+    right: 30,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: '#2D2D2D',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  editIconWrapper: {
+    width: 26,
+    height: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  editSquare: {
+    width: 24,
+    height: 24,
+    borderWidth: 2.5,
+    borderColor: '#2D2D2D',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  pencilWrapper: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    transform: [{ rotate: '-45deg' }],
+  },
+
+  pencilBody: {
+    width: 14,
+    height: 4,
+    backgroundColor: '#2D2D2D',
+    borderTopLeftRadius: 2,
+    borderBottomLeftRadius: 2,
+  },
+
+  pencilTip: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderLeftWidth: 4,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#2D2D2D',
   },
 });
 
