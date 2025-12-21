@@ -405,7 +405,7 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F2EFE8' },
+  root: { flex: 1, backgroundColor: '#F2EFE8', marginBottom: 30 },
   container: { flex: 1 },
   topInteractiveLayer: { zIndex: 100 },
   dimOverlay: {

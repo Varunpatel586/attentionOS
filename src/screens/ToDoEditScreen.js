@@ -26,7 +26,7 @@ const ToDoEditScreen = ({ route, navigation }) => {
   const [taskGroup, setTaskGroup] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState(null);
-  const [pickerOpen, setPickerOpen] = useState(false); //
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const userRef = firestore().collection('users').doc(user?.uid);
   const todoRef = userRef.collection('todos').doc(todoId || 'temp');
@@ -49,14 +49,20 @@ const ToDoEditScreen = ({ route, navigation }) => {
 
   const handleSave = async () => {
     if (!title.trim()) return Alert.alert('Error', 'Task title is required');
+
     try {
+      const now = new Date();
       const data = {
         title: title.trim(),
         taskGroup: taskGroup.trim(),
         description: description.trim(),
-        dueDate: dueDate ? firestore.Timestamp.fromDate(dueDate) : null,
-        updatedAt: firestore.FieldValue.serverTimestamp(),
+        updatedAt: now,
       };
+
+      // Only add dueDate if it exists
+      if (dueDate) {
+        data.dueDate = dueDate;
+      }
 
       if (exists) {
         await todoRef.update(data);
@@ -64,13 +70,14 @@ const ToDoEditScreen = ({ route, navigation }) => {
         await userRef.collection('todos').add({
           ...data,
           completed: false,
-          createdAt: firestore.FieldValue.serverTimestamp(),
+          createdAt: now,
         });
       }
+
       navigation.goBack();
     } catch (e) {
-      console.error(e);
-      Alert.alert('Error', 'Failed to save task');
+      console.error('Save error:', e);
+      Alert.alert('Error', 'Failed to save task: ' + e.message);
     }
   };
 
@@ -157,7 +164,7 @@ const ToDoEditScreen = ({ route, navigation }) => {
                   isCustomDate && styles.activePill,
                 ]}
                 activeOpacity={0.7}
-                onPress={() => setPickerOpen(true)} //
+                onPress={() => setPickerOpen(true)}
               >
                 {isCustomDate ? (
                   <View style={{ alignItems: 'center' }}>
@@ -223,12 +230,12 @@ const ToDoEditScreen = ({ route, navigation }) => {
         modal
         open={pickerOpen}
         date={dueDate || new Date()}
-        mode="date" //
-        androidVariant="calendar" // FORCES CALENDAR MODE
+        mode="date"
+        androidVariant="iosClone"
         theme="light"
         onConfirm={date => {
           setPickerOpen(false);
-          setDueDate(date); //
+          setDueDate(date);
         }}
         onCancel={() => {
           setPickerOpen(false);
