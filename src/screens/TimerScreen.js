@@ -7,30 +7,60 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import BottomNavbar from '../components/BottomNavbar';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 
 const POMODORO_FOCUS = 25 * 60; // 25 min
 const POMODORO_BREAK = 5 * 60; // 5 min
 
 const TimerScreen = () => {
   const [activeTab, setActiveTab] = useState('Pomodoro');
-  const [distractions, setDistractions] = useState(3);
+  const [distractions, setDistractions] = useState(0);
 
   const [seconds, setSeconds] = useState(POMODORO_FOCUS);
   const [isRunning, setIsRunning] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
 
+  const [activeTask, setActiveTask] = useState(null);
   const intervalRef = useRef(null);
+
+  /* ---------------- ACTIVE TASK LISTENER ---------------- */
+
+  useEffect(() => {
+    const user = auth().currentUser;
+    if (!user) return;
+
+    const unsubscribe = firestore()
+      .collection('users')
+      .doc(user.uid)
+      .collection('bigThree')
+      .where('active', '==', true)
+      .onSnapshot(snapshot => {
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0];
+          setActiveTask({ id: doc.id, ...doc.data() });
+        } else {
+          setActiveTask(null);
+          setIsRunning(false); // stop timer if no task
+        }
+      });
+
+    return unsubscribe;
+  }, []);
 
   /* ---------------- TIMER ENGINE ---------------- */
 
   useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     if (!isRunning) return;
 
     intervalRef.current = setInterval(() => {
       setSeconds(prev => {
-        // Pomodoro countdown
         if (activeTab === 'Pomodoro') {
           if (prev === 0) {
             const nextIsBreak = !isBreak;
@@ -39,39 +69,31 @@ const TimerScreen = () => {
           }
           return prev - 1;
         }
-
-        // Infinite count-up
-        return prev + 1;
+        return prev + 1; // Infinite mode
       });
     }, 1000);
 
     return () => clearInterval(intervalRef.current);
   }, [isRunning, activeTab, isBreak]);
 
-  /* ---------------- TAB SWITCH HANDLING ---------------- */
+  /* ---------------- CONTROLS ---------------- */
+
+  const toggleTimer = () => {
+    if (activeTab === 'Pomodoro' && !activeTask) return;
+    setIsRunning(prev => !prev);
+  };
+
+  const resetTimer = () => {
+    setIsRunning(false);
+    setIsBreak(false);
+    setSeconds(activeTab === 'Pomodoro' ? POMODORO_FOCUS : 0);
+  };
 
   const switchTab = tab => {
     setActiveTab(tab);
     setIsRunning(false);
     setIsBreak(false);
-    clearInterval(intervalRef.current);
-
-    if (tab === 'Pomodoro') {
-      setSeconds(POMODORO_FOCUS);
-    } else {
-      setSeconds(0);
-    }
-  };
-
-  /* ---------------- CONTROLS ---------------- */
-
-  const toggleTimer = () => setIsRunning(prev => !prev);
-
-  const resetTimer = () => {
-    setIsRunning(false);
-    clearInterval(intervalRef.current);
-    setIsBreak(false);
-    setSeconds(activeTab === 'Pomodoro' ? POMODORO_FOCUS : 0);
+    setSeconds(tab === 'Pomodoro' ? POMODORO_FOCUS : 0);
   };
 
   /* ---------------- TIME FORMAT ---------------- */
@@ -119,27 +141,35 @@ const TimerScreen = () => {
 
         {/* Pomodoro Phase */}
         {activeTab === 'Pomodoro' && (
-          <Text style={{ marginBottom: 20, fontWeight: '600' }}>
+          <Text style={styles.phaseText}>
             {isBreak ? 'Break Time' : 'Focus Time'}
           </Text>
         )}
 
         {/* Controls */}
         <View style={styles.controlsPill}>
-          <TouchableOpacity style={styles.controlIcon} onPress={toggleTimer}>
-            <Icon name={isRunning ? 'pause' : 'play'} size={28} color="#FFF" />
+          <TouchableOpacity onPress={toggleTimer}>
+            <Ionicons
+              name={isRunning ? 'pause' : 'play'}
+              size={28}
+              color="#FFF"
+            />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.controlIcon} onPress={resetTimer}>
-            <Icon name="refresh" size={28} color="#FFF" />
+          <TouchableOpacity onPress={resetTimer}>
+            <Ionicons name="refresh" size={28} color="#FFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Task Card (unchanged) */}
+        {/* Active Task */}
         <View style={styles.taskContainer}>
           <View style={styles.taskCard}>
-            <Text style={styles.taskTitleText}>Task title</Text>
-            <Text style={styles.taskGroupText}>Task group</Text>
+            <Text style={styles.taskTitleText}>
+              {activeTask ? activeTask.title : 'No active task'}
+            </Text>
+            <Text style={styles.taskGroupText}>
+              {activeTask ? activeTask.category : 'Select a task'}
+            </Text>
           </View>
         </View>
 
@@ -163,32 +193,17 @@ const TimerScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2EFE9',
-  },
+  container: { flex: 1, backgroundColor: '#F2EFE9' },
   scrollContent: {
     alignItems: 'center',
     paddingHorizontal: 25,
     paddingTop: 40,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    gap: 30,
-    marginBottom: 60,
-  },
-  tabItem: {
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 18,
-    color: '#999',
-    fontWeight: '500',
-  },
-  activeTabText: {
-    color: '#000',
-    fontWeight: '700',
-  },
+
+  tabContainer: { flexDirection: 'row', gap: 30, marginBottom: 60 },
+  tabItem: { alignItems: 'center' },
+  tabText: { fontSize: 18, color: '#999', fontWeight: '500' },
+  activeTabText: { color: '#000', fontWeight: '700' },
   activeTabIndicator: {
     marginTop: 6,
     width: '100%',
@@ -196,27 +211,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#262626',
     borderRadius: 2,
   },
-  timerDisplay: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 50,
-  },
+
+  timerDisplay: { flexDirection: 'row', marginBottom: 50 },
   timeUnit: {
     flexDirection: 'row',
     alignItems: 'baseline',
     marginHorizontal: 5,
   },
-  timerNumber: {
-    fontSize: 100,
-    fontWeight: '800',
-    color: '#262626',
-  },
-  timerLabel: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#262626',
-    marginLeft: 4,
-  },
+  timerNumber: { fontSize: 100, fontWeight: '800', color: '#262626' },
+  timerLabel: { fontSize: 24, fontWeight: '700', marginLeft: 4 },
+
+  phaseText: { marginBottom: 20, fontWeight: '600' },
+
   controlsPill: {
     flexDirection: 'row',
     backgroundColor: '#262626',
@@ -226,50 +232,23 @@ const styles = StyleSheet.create({
     gap: 25,
     marginBottom: 60,
   },
-  taskContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
+
+  taskContainer: { width: '100%', marginBottom: 20 },
   taskCard: {
-    flex: 1,
     backgroundColor: '#262626',
     borderRadius: 20,
     padding: 20,
-    marginRight: 15,
   },
-  taskTitleText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-  taskGroupText: {
-    fontSize: 14,
-    color: '#BFBFBF',
-    marginTop: 4,
-  },
-  taskActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#262626',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  taskTitleText: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+  taskGroupText: { fontSize: 14, color: '#BFBFBF', marginTop: 4 },
+
   distractionRow: {
     flexDirection: 'row',
     width: '100%',
-    alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#E9E5DC',
     padding: 8,
     borderRadius: 40,
-    marginBottom: 20,
   },
   distractionPill: {
     backgroundColor: '#262626',
@@ -277,30 +256,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     borderRadius: 35,
   },
-  distractionBtnText: {
-    color: '#FFF',
-    fontWeight: '600',
-  },
-  distractionCountText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#262626',
-    marginRight: 20,
-  },
-  changeTaskPill: {
-    flexDirection: 'row',
-    backgroundColor: '#262626',
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 35,
-    alignItems: 'center',
-    gap: 10,
-  },
-  changeTaskText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  distractionBtnText: { color: '#FFF', fontWeight: '600' },
+  distractionCountText: { fontSize: 24, fontWeight: '800' },
 });
 
 export default TimerScreen;

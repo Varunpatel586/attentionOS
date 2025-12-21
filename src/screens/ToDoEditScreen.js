@@ -5,10 +5,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { height } = Dimensions.get('window');
 
@@ -46,12 +46,6 @@ const ToDoEditScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
-
-      {/* Mock Status Bar */}
-      <View style={styles.deviceStatus}>
-        <Text style={styles.statusBold}>11:30</Text>
-        <Text style={styles.statusBold}>📶 🔋</Text>
-      </View>
 
       <Text style={styles.screenTitle}>Edit task</Text>
 
@@ -103,11 +97,6 @@ const ToDoEditScreen = () => {
           </View>
         </View>
       </View>
-
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab}>
-        <CustomEditIcon />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 };
