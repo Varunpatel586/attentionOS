@@ -25,6 +25,7 @@ const TimerScreen = () => {
 
   const [activeTask, setActiveTask] = useState(null);
   const intervalRef = useRef(null);
+  const lastUpdateRef = useRef(Date.now());
 
   /* ---------------- ACTIVE TASK LISTENER ---------------- */
 
@@ -50,6 +51,26 @@ const TimerScreen = () => {
     return unsubscribe;
   }, []);
 
+  /* ---------------- UPDATE FOCUS TIME IN FIREBASE ---------------- */
+
+  const updateFocusTime = async () => {
+    const user = auth().currentUser;
+    if (!user) return;
+
+    try {
+      const userRef = firestore().collection('users').doc(user.uid);
+      const userDoc = await userRef.get();
+      const currentFocusTime = userDoc.data()?.todayFocusTime || 0;
+
+      // Increment by 1 second
+      await userRef.update({
+        todayFocusTime: currentFocusTime + 1,
+      });
+    } catch (error) {
+      console.error('Error updating focus time:', error);
+    }
+  };
+
   /* ---------------- TIMER ENGINE ---------------- */
 
   useEffect(() => {
@@ -62,14 +83,22 @@ const TimerScreen = () => {
     intervalRef.current = setInterval(() => {
       setSeconds(prev => {
         if (activeTab === 'Pomodoro') {
+          // Only increment focus time during focus sessions (not breaks)
+          if (!isBreak) {
+            updateFocusTime();
+          }
+
           if (prev === 0) {
             const nextIsBreak = !isBreak;
             setIsBreak(nextIsBreak);
             return nextIsBreak ? POMODORO_BREAK : POMODORO_FOCUS;
           }
           return prev - 1;
+        } else {
+          // Infinite mode - always counting focus time
+          updateFocusTime();
+          return prev + 1;
         }
-        return prev + 1; // Infinite mode
       });
     }, 1000);
 
@@ -94,6 +123,27 @@ const TimerScreen = () => {
     setIsRunning(false);
     setIsBreak(false);
     setSeconds(tab === 'Pomodoro' ? POMODORO_FOCUS : 0);
+  };
+
+  /* ---------------- DISTRACTION TRACKING ---------------- */
+
+  const handleDistraction = async () => {
+    setDistractions(d => d + 1);
+
+    const user = auth().currentUser;
+    if (!user) return;
+
+    try {
+      const userRef = firestore().collection('users').doc(user.uid);
+      const userDoc = await userRef.get();
+      const currentSwitches = userDoc.data()?.todayContextSwitches || 0;
+
+      await userRef.update({
+        todayContextSwitches: currentSwitches + 1,
+      });
+    } catch (error) {
+      console.error('Error updating context switches:', error);
+    }
   };
 
   /* ---------------- TIME FORMAT ---------------- */
@@ -177,7 +227,7 @@ const TimerScreen = () => {
         <View style={styles.distractionRow}>
           <TouchableOpacity
             style={styles.distractionPill}
-            onPress={() => setDistractions(d => d + 1)}
+            onPress={handleDistraction}
           >
             <Text style={styles.distractionBtnText}>I got distracted!</Text>
           </TouchableOpacity>

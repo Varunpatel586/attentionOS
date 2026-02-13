@@ -2,7 +2,6 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
-import { useNavigation } from '@react-navigation/native';
 
 const BottomNavbar = props => {
   const { state, navigation } = props;

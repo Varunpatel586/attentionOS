@@ -1,28 +1,194 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-// Assuming this path is correct
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import BottomNavbar from '../components/BottomNavbar';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AttentionOSBridge from '../utils/AttentionOSBridge';
 
 const StatsScreen = () => {
-  // Using dummy data fields to make the components dynamic
-  const data = {
-    plannedTasks: 4,
-    completedTasks: 3,
-    focusedTime: '2h 15m',
-    scrollingTime: '1h 40m',
+  const user = auth().currentUser;
+
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    plannedTasks: 0,
+    completedTasks: 0,
+    focusedTime: 0, // in seconds
+    scrollingTime: 0, // in seconds
     productiveSlot: '10–12 AM',
-    contextSwitches: 7,
-    timeLost: '~50 mins lost',
-    bigThreeProgress: ['90%', '75%', '50%'], // Example progress values
+    contextSwitches: 0,
+    bigThreeProgress: [],
+  });
+
+  useEffect(() => {
+    if (!user) return;
+
+    loadAllStats();
+
+    // Refresh every minute
+    const interval = setInterval(() => {
+      loadAllStats();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const loadAllStats = async () => {
+    try {
+      await Promise.all([
+        loadUserStats(),
+        loadTodoStats(),
+        loadBigThreeProgress(),
+        loadScrollingTime(),
+      ]);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const loadUserStats = async () => {
+    if (!user) return;
+
+    const userDoc = await firestore().collection('users').doc(user.uid).get();
+
+    const data = userDoc.data();
+    if (data) {
+      setStats(prev => ({
+        ...prev,
+        focusedTime: data.todayFocusTime || 0,
+        contextSwitches: data.todayContextSwitches || 0,
+        productiveSlot: data.mostProductiveSlot || '10–12 AM',
+      }));
+    }
+  };
+
+  const loadTodoStats = async () => {
+    if (!user) return;
+
+    const todosSnapshot = await firestore()
+      .collection('users')
+      .doc(user.uid)
+      .collection('todos')
+      .get();
+
+    const todos = todosSnapshot.docs.map(doc => doc.data());
+    const completed = todos.filter(todo => todo.completed).length;
+    const total = todos.length;
+
+    setStats(prev => ({
+      ...prev,
+      plannedTasks: total,
+      completedTasks: completed,
+    }));
+  };
+
+  const loadBigThreeProgress = async () => {
+    if (!user) return;
+
+    const bigThreeSnapshot = await firestore()
+      .collection('users')
+      .doc(user.uid)
+      .collection('bigThree')
+      .get();
+
+    const progress = bigThreeSnapshot.docs.map(doc => {
+      const data = doc.data();
+      // Assuming each task has a 'progress' field (0-100)
+      // If not available, calculate based on completion status
+      return data.progress || (data.completed ? 100 : 0);
+    });
+
+    setStats(prev => ({
+      ...prev,
+      bigThreeProgress: progress.slice(0, 3), // Only take first 3
+    }));
+  };
+
+  const loadScrollingTime = async () => {
+    try {
+      const scrollTime = await AttentionOSBridge.getTodayDistractedTime();
+      setStats(prev => ({
+        ...prev,
+        scrollingTime: Math.floor(scrollTime / 1000), // Convert ms to seconds
+      }));
+    } catch (error) {
+      console.error('Error loading scrolling time:', error);
+    }
+  };
+
+  const formatTime = seconds => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const calculateTimeLost = () => {
+    // Estimate: each context switch costs ~7 minutes
+    const minutesLost = Math.floor(stats.contextSwitches * 7);
+
+    if (minutesLost < 60) {
+      return `~${minutesLost} mins lost`;
+    }
+    const hours = Math.floor(minutesLost / 60);
+    const mins = minutesLost % 60;
+    return `~${hours}h ${mins}m lost`;
+  };
+
+  const calculatePotentialTasks = () => {
+    const scrollMinutes = Math.floor(stats.scrollingTime / 60);
+    const savingMinutes = Math.floor(scrollMinutes * 0.3); // 30% reduction
+    const tasksGained = Math.floor(savingMinutes / 30); // Assuming 30 mins per task
+    return tasksGained || 1;
+  };
+
+  const handleReset = () => {
+    // Implement reset logic - could reset daily stats
+    if (!user) return;
+
+    firestore().collection('users').doc(user.uid).update({
+      todayFocusTime: 0,
+      todayContextSwitches: 0,
+    });
+
+    // Reset todos completion
+    firestore()
+      .collection('users')
+      .doc(user.uid)
+      .collection('todos')
+      .get()
+      .then(snapshot => {
+        const batch = firestore().batch();
+        snapshot.docs.forEach(doc => {
+          batch.update(doc.ref, { completed: false });
+        });
+        return batch.commit();
+      });
+  };
+
+  if (!user || loading) {
+    return (
+      <SafeAreaProvider style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#262626" />
+          <Text style={styles.loadingText}>Loading insights...</Text>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider style={styles.container}>
@@ -38,17 +204,18 @@ const StatsScreen = () => {
 
           <View style={styles.summaryContent}>
             <Text style={styles.summaryText}>
-              You planned {data.plannedTasks} tasks and completed{' '}
-              {data.completedTasks}
+              You planned {stats.plannedTasks} task
+              {stats.plannedTasks !== 1 ? 's' : ''} and completed{' '}
+              {stats.completedTasks}
             </Text>
 
             <Text style={styles.summaryText}>
-              You spent {data.focusedTime} focused and {data.scrollingTime}{' '}
-              scrolling.
+              You spent {formatTime(stats.focusedTime)} focused and{' '}
+              {formatTime(stats.scrollingTime)} scrolling.
             </Text>
 
             <Text style={styles.summaryText}>
-              Your most productive slot was {data.productiveSlot}.
+              Your most productive slot was {stats.productiveSlot}.
             </Text>
           </View>
         </View>
@@ -60,7 +227,9 @@ const StatsScreen = () => {
             <View style={styles.contextWrapper}>
               {/* Dark Card */}
               <View style={styles.contextCard}>
-                <Text style={styles.contextNumber}>{data.contextSwitches}</Text>
+                <Text style={styles.contextNumber}>
+                  {stats.contextSwitches}
+                </Text>
                 <Text style={styles.contextLabel}>Context</Text>
                 <Text style={styles.contextLabel}>switches</Text>
                 <Text style={styles.contextToday}>Today</Text>
@@ -68,10 +237,13 @@ const StatsScreen = () => {
 
               {/* OUTSIDE pill */}
               <View style={styles.contextPill}>
-                <Text style={styles.contextPillText}>{data.timeLost}</Text>
+                <Text style={styles.contextPillText}>
+                  {calculateTimeLost()}
+                </Text>
               </View>
             </View>
           </View>
+
           {/* Big Three Card */}
           <View style={styles.bigThreeCard}>
             <View style={styles.bigThreeHeader}>
@@ -82,11 +254,20 @@ const StatsScreen = () => {
             </View>
 
             <View style={styles.progressContainer}>
-              {data.bigThreeProgress.map((progress, index) => (
-                <View key={index} style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: progress }]} />
-                </View>
-              ))}
+              {stats.bigThreeProgress.length > 0
+                ? stats.bigThreeProgress.map((progress, index) => (
+                    <View key={index} style={styles.progressTrack}>
+                      <View
+                        style={[styles.progressFill, { width: `${progress}%` }]}
+                      />
+                    </View>
+                  ))
+                : // Show empty progress bars if no data
+                  [0, 1, 2].map(index => (
+                    <View key={index} style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: '0%' }]} />
+                    </View>
+                  ))}
             </View>
           </View>
         </View>
@@ -100,8 +281,12 @@ const StatsScreen = () => {
             </View>
             <View style={styles.tipContent}>
               <Text style={styles.tipText}>
-                If you reduced scrolling by 30 minutes, you could complete 1
-                extra task daily.
+                If you reduced scrolling by 30 minutes, you could complete{' '}
+                {calculatePotentialTasks()}
+                {calculatePotentialTasks() === 1
+                  ? ' extra task'
+                  : ' extra tasks'}{' '}
+                daily.
               </Text>
             </View>
           </View>
@@ -119,7 +304,7 @@ const StatsScreen = () => {
         </View>
 
         {/* 4. Reset Button */}
-        <TouchableOpacity style={styles.resetButton}>
+        <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
           <Text style={styles.resetText}>Reset</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -133,7 +318,18 @@ const StatsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2EFE9', // Adjusted background to match image
+    backgroundColor: '#F2EFE9',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontFamily: 'Poppins',
   },
   scrollContent: {
     paddingTop: 30,
@@ -169,7 +365,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   accentBar: {
-    width: 7, // Thinner bar
+    width: 7,
     backgroundColor: '#262626',
     flex: 1,
     borderRadius: 3,
@@ -202,7 +398,7 @@ const styles = StyleSheet.create({
   cardsRow: {
     flexDirection: 'row',
     marginBottom: 24,
-    gap: 15, // Increased gap slightly
+    gap: 15,
   },
 
   contextWrapper: {
@@ -325,7 +521,7 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   tipCard: {
-    flex: 1, // Let flex handle the width
+    flex: 1,
     backgroundColor: '#E9E5DC',
     borderRadius: 17,
     flexDirection: 'row',
@@ -357,7 +553,7 @@ const styles = StyleSheet.create({
     wordWrap: 'break-word',
   },
   moreTipsButton: {
-    width: 115, // Fixed width for the button (adjusts to design)
+    width: 115,
     minHeight: 158,
     backgroundColor: '#262626',
     borderRadius: 17,
@@ -366,11 +562,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   arrowIcon: {
-    fontSize: 60, // Larger size to match design
-    fontWeight: '100', // Thin arrow look
+    fontSize: 60,
+    fontWeight: '100',
     color: '#FFF',
     marginBottom: 0,
-    // No rotation needed for simple chevron-forward
   },
   moreTipsText: {
     fontSize: 16,
@@ -390,7 +585,7 @@ const styles = StyleSheet.create({
   },
   resetText: {
     fontSize: 18,
-    fontWeight: '600', // Slightly bolder text
+    fontWeight: '600',
     color: '#FFF',
     fontFamily: 'Poppins',
   },
