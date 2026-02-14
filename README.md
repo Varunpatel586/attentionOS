@@ -1,240 +1,141 @@
 # AttentionOS
 
-> A productivity and focus tracking mobile app for Android
+**An attention tracking and digital wellness platform for Android.**
 
-AttentionOS is a React Native mobile application designed to help you take control of your attention and maximize productivity. Built for Android, it combines focus time tracking, task management, and distraction monitoring to help you understand and improve how you spend your time. Whether you're using the Pomodoro technique or tracking your focus sessions, AttentionOS provides the tools you need to stay on task and achieve your goals.
+AttentionOS is a productivity system built to measure and improve how users spend their attention. It combines structured focus sessions, task prioritization, and real-time behavioral tracking to provide actionable insights into digital distraction.
 
-## Table of Contents
+Unlike traditional productivity apps that rely only on manual timers or task lists, AttentionOS integrates native Android services to detect scrolling behavior and context switching. The result is a measurable model of focus versus distraction.
 
-- [About](#about)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Firebase Configuration](#firebase-configuration)
-- [Native Module Setup](#native-module-setup)
-- [Running the App](#running-the-app)
-- [Development Workflow](#development-workflow)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
-- [Resources](#resources)
-- [Contributing](#contributing)
+---
 
-## About
+## Overview
 
-AttentionOS is a comprehensive productivity app that helps you manage your focus time and track distractions throughout your day. The app features a unique "Big Three" task management system that encourages you to focus on your three most important tasks each day, combined with powerful time tracking capabilities that distinguish between focused work and distracted scrolling.
+AttentionOS is built as a hybrid architecture:
 
-Built with React Native and Firebase, AttentionOS integrates native Android functionality to monitor app usage in real-time, providing accurate insights into how you spend your time on your device.
+- **React Native** for UI and application logic
+- **Firebase** for authentication and cloud data
+- **Native Kotlin modules** for real-time app usage and scrolling detection
 
-## Features
+All behavioral classification runs locally on-device.
 
-✨ **Firebase Authentication** - Secure login and signup with email/password authentication
+---
 
-⏱️ **Focus & Scroll Mode Tracking** - Toggle between focus and scroll modes with real-time monitoring of your time in each state
+## Core Capabilities
 
-🎯 **Big Three Task Management** - Prioritize your day by selecting three key tasks to focus on
+### Focus Tracking
+- Pomodoro mode (25/5 cycles)
+- Unlimited focus sessions
+- Live focus duration tracking
+- Context switch detection
 
-✅ **Todo List** - Create and manage your daily tasks with completion tracking
+### Distraction Detection
+- Foreground app monitoring via `UsageStatsManager`
+- Scroll event detection via `AccessibilityService`
+- Session classification (active scrolling, passive consumption, hybrid)
+- Real-time background tracking via foreground service
 
-🍅 **Pomodoro Timer** - Built-in 25-minute focus sessions with 5-minute breaks
+### Task System
+- "Big Three" daily priorities
+- Todo list with completion tracking
+- Firestore-backed persistence
 
-♾️ **Infinite Timer Mode** - Track extended focus sessions without time limits
+### Analytics
+- Daily focus vs scroll breakdown
+- Context switch count
+- Time-loss estimation model
+- Session-based statistics
 
-📊 **Distraction Tracking** - Monitor context switches and distractions throughout your day
+---
 
-📱 **Native Android Integration** - Real-time app usage tracking using native Kotlin modules
+## Architecture
 
-🧭 **Bottom Tab Navigation** - Easy access to Home, Timer, Tracking, and Stats screens
+```
+React Native Layer
+    UI, Navigation, State Management
+            ↓
+Firebase
+    Authentication + Cloud Firestore
+            ↓
+Native Android Layer (Kotlin)
+    UsageStatsManager
+    AccessibilityService
+    ForegroundService
+    Room Database
+            ↓
+Behavior Classification Engine
+```
 
-👤 **User Profile** - Personalized experience with user preferences and settings
+Widgets read directly from local storage for low-latency updates.
 
-## Tech Stack
+---
 
-**Framework**
-- React Native 0.83.0
+## Technology Stack
 
-**Backend Services**
+**Frontend**
+- React Native (CLI)
+- TypeScript
+- React Navigation
+
+**Backend**
 - Firebase Authentication
 - Cloud Firestore
 
-**Navigation**
-- React Navigation (native-stack)
-- React Navigation (bottom-tabs)
-
-**Languages**
-- TypeScript
-- JavaScript
-
-**UI Libraries**
-- React Native Vector Icons
-- React Native Safe Area Context
-
-**Native Modules**
-- Custom Android modules (Kotlin) for app usage tracking
+**Native Android**
+- Kotlin
+- Room (local database)
+- Coroutines
+- UsageStatsManager
+- AccessibilityService
+- Foreground Service
 
 **Platform**
-- Android (primary target)
+- Android (primary)
 
-## Prerequisites
+---
 
-Before you begin, ensure you have the following installed and configured:
+## Privacy Model
 
-- **Node.js** (version 20 or higher)
-  ```bash
-  node --version
-  ```
+AttentionOS is designed with a strict local-first privacy model:
 
-- **React Native CLI Environment** - Complete the [React Native CLI setup for Android](https://reactnative.dev/docs/environment-setup?platform=android)
+- No content is read or stored
+- No screen recording
+- No keystroke capture
+- Only foreground app state and scroll events are monitored
+- Behavioral processing runs entirely on-device
 
-- **Android Studio** - Latest version with Android SDK installed
-
-- **JDK** (Java Development Kit) - Version 17 or higher required for React Native 0.83
-
-- **Firebase Account** - You'll need a Firebase project for authentication and database
-
-- **Android Emulator or Physical Device** - For running and testing the app
+---
 
 ## Installation
 
-Follow these steps to set up the project locally:
+### Requirements
 
-1. **Clone the repository**
+- Node.js ≥ 20
+- JDK 17+
+- Android Studio with SDK
+- Firebase project configured
+
+### Setup
 
 ```bash
 git clone https://github.com/yourusername/attentionOS.git
 cd attentionOS
-```
-
-2. **Install dependencies**
-
-```bash
 npm install
 ```
 
-3. **Proceed to Firebase Configuration** (see next section)
+Add your Firebase configuration:
 
-## Firebase Configuration
-
-AttentionOS requires Firebase for authentication and data storage. Follow these steps to configure Firebase:
-
-1. **Create a Firebase Project**
-   - Go to the [Firebase Console](https://console.firebase.google.com/)
-   - Click "Add project" and follow the setup wizard
-
-2. **Add an Android App**
-   - In your Firebase project, click "Add app" and select Android
-   - Register your app with the package name: `com.attentionos`
-
-3. **Download Configuration File**
-   - Download the `google-services.json` file from Firebase Console
-
-4. **Place Configuration File**
-   - Place the `google-services.json` file in the following directory:
-   ```
-   android/app/google-services.json
-   ```
-
-5. **Enable Firebase Authentication**
-   - In Firebase Console, go to Authentication → Sign-in method
-   - Enable "Email/Password" authentication
-
-6. **Enable Cloud Firestore**
-   - In Firebase Console, go to Firestore Database
-   - Click "Create database"
-   - Start in production mode or test mode (configure security rules as needed)
-
-7. **Firestore Collections Setup**
-   - The app will automatically create the following collections:
-     - `users` - User profiles and settings
-     - `users/{userId}/bigThree` - User's Big Three tasks
-     - `users/{userId}/todos` - User's todo items
-
-**Troubleshooting Firebase:**
-- If you see "Default Firebase app not initialized", ensure `google-services.json` is in the correct location
-- Run a clean build after adding Firebase configuration: `cd android && ./gradlew clean && cd ..`
-- Verify your package name matches exactly: `com.attentionos`
-
-## Native Module Setup
-
-AttentionOS uses custom native Android modules to track app usage and detect scrolling behavior. Understanding these components will help you work with the app effectively.
-
-### Required Permissions
-
-The app requires the following Android permissions, which are requested at runtime:
-
-- **Usage Stats Permission** - Allows the app to track which apps you're using and for how long. This is essential for distinguishing between focus time and distracted scrolling.
-
-- **Accessibility Permission** - Enables detection of scrolling behavior within apps. This helps identify when you're actively scrolling through social media or other distracting content.
-
-- **Notification Permission** - Required for the foreground service that runs the tracking functionality in the background.
-
-These permissions are requested through the app's UI when you first enable tracking features. The app will guide you through granting these permissions in your device settings.
-
-### AttentionOSBridge Native Module
-
-The `AttentionOSBridge` is a custom native module written in Kotlin that provides the bridge between React Native and Android's native APIs. It handles:
-
-- Starting and stopping usage tracking
-- Retrieving daily distracted time statistics
-- Checking permission status
-- Managing the foreground service
-
-**Example usage in JavaScript:**
-
-```javascript
-import AttentionOSBridge from '../utils/AttentionOSBridge';
-
-// Check if tracking is running
-const isRunning = await AttentionOSBridge.isTrackingRunning();
-
-// Start tracking
-AttentionOSBridge.startTracking();
-
-// Stop tracking
-AttentionOSBridge.stopTracking();
-
-// Get today's distracted time (in milliseconds)
-const distractedTime = await AttentionOSBridge.getTodayDistractedTime();
-
-// Check permissions
-const permissions = await AttentionOSBridge.checkPermissions();
+```
+android/app/google-services.json
 ```
 
-**Important Note:** Any changes to native code (Kotlin files in `android/app/src/main/java/com/attentionos/`) require a clean build to take effect. See the troubleshooting section for clean build instructions.
-
-## Running the App
-
-### Start Metro Bundler
-
-First, start the Metro bundler (React Native's JavaScript bundler):
+Then run:
 
 ```bash
 npm start
-```
-
-Keep this terminal running. Metro will watch for file changes and rebuild your JavaScript bundle.
-
-### Build and Run on Android
-
-Open a new terminal and run:
-
-```bash
 npm run android
 ```
 
-This command will:
-- Build the Android app
-- Install it on your connected device or running emulator
-- Launch the app automatically
-
-**Requirements:**
-- Metro bundler must be running (from the previous step)
-- An Android emulator must be running, OR
-- An Android device must be connected via USB with USB debugging enabled
-
-### Clean Build (When Needed)
-
-If you've made changes to native code, installed new native dependencies, or encounter build issues, perform a clean build:
+If native changes were made:
 
 ```bash
 cd android
@@ -243,234 +144,66 @@ cd ..
 npm run android
 ```
 
-On Windows, use:
-```bash
-cd android
-.\gradlew clean
-cd ..
-npm run android
-```
+### Required Android Permissions
 
-## Development Workflow
+The app requires:
 
-### Fast Refresh
+- Usage Stats access
+- Accessibility Service access
+- Notification permission (foreground service)
 
-React Native's Fast Refresh automatically updates the app when you save changes to your JavaScript/TypeScript files. You'll see your changes reflected immediately without losing component state.
+These are requested at runtime when enabling tracking features.
 
-### Manual Reload
-
-To manually reload the app:
-- Press `R` twice quickly in the terminal where Metro is running, OR
-- Shake your device and select "Reload" from the developer menu
-
-### Developer Menu
-
-Access the React Native developer menu:
-- **Android Emulator:** Press `Ctrl + M` (Windows/Linux) or `Cmd + M` (macOS)
-- **Android Device:** Shake the device
-
-From the developer menu, you can:
-- Reload the app
-- Enable/disable Fast Refresh
-- Toggle element inspector
-- Show performance monitor
-- Access debugging tools
-
-### Reset Metro Cache
-
-If you encounter unexpected behavior or caching issues:
-
-```bash
-npx react-native start --reset-cache
-```
-
-### When to Perform a Full Rebuild
-
-You need a full rebuild (clean build) when:
-- Adding or updating native dependencies (e.g., React Native libraries with native code)
-- Modifying native Android code (Kotlin/Java files)
-- Changing Android manifest or build configuration
-- Updating Firebase configuration
-- Experiencing persistent build or runtime errors
+---
 
 ## Project Structure
 
 ```
-attentionOS/
-├── android/                          # Native Android code
-│   └── app/
-│       ├── src/main/java/com/attentionos/  # Kotlin native modules
-│       └── google-services.json      # Firebase configuration (you add this)
-├── src/                              # React Native source code
-│   ├── screens/                      # Screen components
-│   │   ├── HomeScreen.js            # Main dashboard with Big Three and todos
-│   │   ├── TimerScreen.js           # Pomodoro and infinite timer
-│   │   ├── TrackingScreen.tsx       # App usage tracking interface
-│   │   ├── StatsScreen.js           # Statistics and insights
-│   │   ├── LoginScreen.js           # Authentication - login
-│   │   ├── SignupScreen.js          # Authentication - signup
-│   │   └── SplashScreen.js          # App launch screen
-│   ├── components/                   # Reusable UI components
-│   │   └── BottomNavbar.js          # Bottom tab navigation
-│   ├── navigation/                   # Navigation configuration
-│   │   ├── RootNavigator.tsx        # Root navigation logic
-│   │   ├── AppStack.tsx             # Authenticated app navigation
-│   │   └── AppTabs.tsx              # Bottom tab navigator
-│   ├── utils/                        # Utility functions and helpers
-│   │   └── AttentionOSBridge.ts     # Native module bridge interface
-│   └── App.tsx                       # App entry point
-├── package.json                      # Dependencies and scripts
-└── README.md                         # This file
+android/
+    Native Kotlin modules and services
+
+src/
+    screens/
+    components/
+    navigation/
+    utils/
+    App.tsx
 ```
 
-**Key Directories:**
+Native tracking logic lives in:
 
-- **`src/screens/`** - All screen components. Each screen represents a full-page view in the app.
-- **`src/components/`** - Reusable UI components used across multiple screens.
-- **`src/navigation/`** - React Navigation configuration for app routing and navigation flow.
-- **`src/utils/`** - Helper functions, constants, and the native module bridge.
-- **`android/app/src/main/java/com/attentionos/`** - Native Android code including the AttentionOSBridge module.
-
-## Troubleshooting
-
-### Metro Bundler Issues
-
-**Problem:** Metro bundler fails to start or shows port conflicts
-
-**Solution:**
-```bash
-# Kill any process using port 8081
-npx react-native start --reset-cache
-
-# On Windows, if port is in use:
-netstat -ano | findstr :8081
-taskkill /PID <PID> /F
 ```
-
-### Android Build Failures
-
-**Problem:** Build fails with Gradle errors or dependency issues
-
-**Solution:**
-```bash
-# Clean the build
-cd android
-./gradlew clean
-cd ..
-
-# Clear Gradle cache (if issues persist)
-cd android
-./gradlew clean --refresh-dependencies
-cd ..
-
-# Reinstall dependencies
-rm -rf node_modules
-npm install
+android/app/src/main/java/com/attentionos/
 ```
-
-### Firebase Connection Issues
-
-**Problem:** App crashes or shows Firebase initialization errors
-
-**Solution:**
-- Verify `google-services.json` is in `android/app/` directory
-- Confirm package name in Firebase Console matches `com.attentionos`
-- Ensure Firebase Authentication and Firestore are enabled in Firebase Console
-- Perform a clean build after adding/updating Firebase configuration
-- Check that your Firebase project has the correct Android app registered
-
-### Native Module Errors
-
-**Problem:** AttentionOSBridge methods fail or return undefined
-
-**Solution:**
-- Ensure you've performed a clean build after any native code changes
-- Verify permissions are granted in device settings
-- Check Android logs for native errors:
-  ```bash
-  npx react-native log-android
-  ```
-- Rebuild the app completely:
-  ```bash
-  cd android
-  ./gradlew clean
-  cd ..
-  npm run android
-  ```
-
-### Permission-Related Issues
-
-**Problem:** Tracking features don't work or permissions aren't requested
-
-**Solution:**
-- Manually grant permissions in device Settings → Apps → AttentionOS → Permissions
-- For Usage Stats: Settings → Apps → Special app access → Usage access → AttentionOS
-- For Accessibility: Settings → Accessibility → AttentionOS
-- Restart the app after granting permissions
-
-### General Troubleshooting Steps
-
-If you encounter any issues:
-
-1. **Clear all caches:**
-   ```bash
-   # Clear Metro cache
-   npx react-native start --reset-cache
-   
-   # Clear npm cache
-   npm cache clean --force
-   
-   # Reinstall dependencies
-   rm -rf node_modules
-   npm install
-   ```
-
-2. **Perform a complete clean build:**
-   ```bash
-   cd android
-   ./gradlew clean
-   cd ..
-   npm run android
-   ```
-
-3. **Check for error logs:**
-   ```bash
-   # View Android logs
-   npx react-native log-android
-   ```
-
-## Resources
-
-- **[React Native Documentation](https://reactnative.dev/docs/getting-started)** - Official React Native guides and API reference
-- **[Firebase Documentation](https://firebase.google.com/docs)** - Firebase setup, authentication, and Firestore guides
-- **[React Navigation Documentation](https://reactnavigation.org/docs/getting-started)** - Navigation library documentation
-- **[React Native Vector Icons](https://github.com/oblador/react-native-vector-icons)** - Icon library documentation and icon directory
-- **[Android Developers](https://developer.android.com/)** - Android development resources and native API documentation
-
-## Contributing
-
-We welcome contributions to AttentionOS! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
-
-### How to Contribute
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Reporting Issues
-
-If you encounter bugs or have feature requests:
-- Check existing issues to avoid duplicates
-- Provide detailed information about the problem
-- Include steps to reproduce the issue
-- Share relevant error messages or screenshots
-
-### License
-
-This project is currently unlicensed. License information will be added in a future update.
 
 ---
 
-**Built with ❤️ for better focus and productivity**
+## Engineering Notes
+
+- Native changes require a clean rebuild.
+- Behavioral sessions are stored locally before cloud sync.
+- Classification is rule-based (threshold-driven).
+- Tracking runs via a persistent foreground service.
+- All widgets read from local Room database.
+
+---
+
+## Roadmap
+
+- Expanded analytics model
+- Weekly trend reports
+- Attention scoring system
+- Multi-size home screen widgets
+- iOS implementation
+
+---
+
+## Contributing
+
+Pull requests are welcome. For major changes, open an issue first to discuss scope and implementation approach.
+
+---
+
+## License
+
+License to be added.
