@@ -206,4 +206,7 @@ Pull requests are welcome. For major changes, open an issue first to discuss sco
 
 ## License
 
-License to be added.
+Copyright (c) 2026 Varun  
+All rights reserved.
+
+This software and associated documentation files may not be copied, modified, distributed, or used for commercial purposes without explicit written permission from the author.
