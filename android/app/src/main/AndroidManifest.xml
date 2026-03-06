@@ -13,6 +13,9 @@
     <!-- Required for usage stats (special permission, requires user to grant in Settings) -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         android:protectionLevel="signature|privileged|appop" />
+    
+    <!-- Required for floating overlay bubble -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
       android:name=".MainApplication"

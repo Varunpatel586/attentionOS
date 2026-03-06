@@ -20,6 +20,8 @@ import com.attentionos.database.AppSession
 import com.attentionos.repository.SessionRepository
 import com.attentionos.tracking.SessionClassifier
 import com.attentionos.tracking.UsageStatsHelper
+import com.attentionos.overlay.FloatingTimerOverlay
+import com.attentionos.overlay.OverlayPermissionHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,6 +38,7 @@ import kotlinx.coroutines.launch
  * - Classify completed sessions using SessionClassifier
  * - Save sessions to database via SessionRepository
  * - Display persistent notification
+ * - Manage floating timer overlay for distraction apps
  */
 class TrackingForegroundService : Service() {
 
@@ -45,6 +48,11 @@ class TrackingForegroundService : Service() {
     
     private val handler = Handler(Looper.getMainLooper())
     private var pollingRunnable: Runnable? = null
+
+    // Floating overlay
+    private val floatingOverlay = FloatingTimerOverlay.getInstance()
+    private var overlayShownTime: Long = 0L
+    private var overlayTimerRunnable: Runnable? = null
 
     // Current session state (in-memory)
     private var currentSessionPackage: String? = null
@@ -150,6 +158,9 @@ class TrackingForegroundService : Service() {
         // Unregister receivers
         LocalBroadcastManager.getInstance(this).unregisterReceiver(accessibilityEventReceiver)
         unregisterReceiver(screenStateReceiver)
+
+        // Remove overlay
+        hideOverlay()
     }
 
     /**
@@ -184,6 +195,16 @@ class TrackingForegroundService : Service() {
     private fun checkForegroundApp() {
         val now = System.currentTimeMillis()
         val foregroundApp = usageStatsHelper.getCurrentForegroundApp()
+
+        // START SESSION IF USER OPENS A DISTRACTION APP
+        if (currentSessionPackage == null && foregroundApp != null) {
+            if (SessionClassifier.isDistractionApp(foregroundApp)) {
+
+                Log.i(TAG, "📱 SESSION START (foreground detection): $foregroundApp")
+
+                startNewSession(foregroundApp)
+            }
+        }
 
         // ═══════════════════════════════════════════════════════════════
         // CASE 1: UsageStats returned a real app
@@ -279,6 +300,9 @@ class TrackingForegroundService : Service() {
     Log.i(TAG, "   startTime: ${currentSessionStartTime}ms")
     Log.i(TAG, "   scrollCount: 0, scrollTime: 0ms, attentionTime: 0ms")
     Log.i(TAG, "========================================")
+    
+    // Reset overlay state for new session
+    overlayShownTime = 0L
 }
 
 
@@ -338,6 +362,9 @@ class TrackingForegroundService : Service() {
         }
 
         resetSessionState()
+        
+        // Hide overlay when session ends
+        hideOverlay()
     }
 
     /**
@@ -350,6 +377,7 @@ class TrackingForegroundService : Service() {
         scrollTime = 0L
         attentionTime = 0L
         lastScrollTimestamp = 0
+        overlayShownTime = 0L
     }
 
     /**
@@ -438,6 +466,76 @@ class TrackingForegroundService : Service() {
             }
             
             // DO NOT reset counters - session continues
+            
+            // Check if we should show overlay (after 20 seconds of engagement)
+            checkAndShowOverlay()
+        }
+    }
+
+    /**
+     * Check if overlay should be shown based on session metrics
+     */
+    private fun checkAndShowOverlay() {
+        val packageName = currentSessionPackage ?: return
+        val totalTime = scrollTime + attentionTime
+        
+        // Only show overlay for distraction apps
+        if (!SessionClassifier.isDistractionApp(packageName)) {
+            return
+        }
+        
+        // Show overlay after 20 seconds of engagement and only if not already shown
+        if (totalTime >= 20_000L && overlayShownTime == 0L) {
+            if (OverlayPermissionHelper.hasPermission(this)) {
+                try {
+                    floatingOverlay.showOverlay(this)
+                    overlayShownTime = System.currentTimeMillis()
+                    startOverlayTimer()
+                    Log.i(TAG, "🫧 Floating overlay shown for $packageName")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Failed to show floating overlay", e)
+                }
+            } else {
+                Log.w(TAG, "⚠️ Overlay permission not granted - cannot show floating timer")
+            }
+        }
+    }
+
+    /**
+     * Start updating the overlay timer every second
+     */
+    private fun startOverlayTimer() {
+        stopOverlayTimer()
+        
+        overlayTimerRunnable = object : Runnable {
+            override fun run() {
+                if (overlayShownTime > 0 && currentSessionPackage != null) {
+                    val elapsedSeconds = (System.currentTimeMillis() - overlayShownTime) / 1000
+                    floatingOverlay.updateTimer(elapsedSeconds)
+                    handler.postDelayed(this, 1000)
+                }
+            }
+        }
+        handler.post(overlayTimerRunnable!!)
+    }
+
+    /**
+     * Stop the overlay timer
+     */
+    private fun stopOverlayTimer() {
+        overlayTimerRunnable?.let { handler.removeCallbacks(it) }
+        overlayTimerRunnable = null
+    }
+
+    /**
+     * Hide the floating overlay
+     */
+    private fun hideOverlay() {
+        if (floatingOverlay.isOverlayVisible()) {
+            floatingOverlay.removeOverlay()
+            stopOverlayTimer()
+            overlayShownTime = 0L
+            Log.i(TAG, "🫧 Floating overlay hidden")
         }
     }
 

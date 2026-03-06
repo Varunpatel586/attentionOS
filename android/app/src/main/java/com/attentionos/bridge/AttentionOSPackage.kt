@@ -7,12 +7,15 @@ import com.facebook.react.uimanager.ViewManager
 
 /**
  * React Native package for AttentionOS.
- * Registers the AttentionOSModule with React Native.
+ * Registers the AttentionOSModule and OverlayModule with React Native.
  */
 class AttentionOSPackage : ReactPackage {
 
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(AttentionOSModule(reactContext))
+        return listOf(
+            AttentionOSModule(reactContext),
+            OverlayModule(reactContext)
+        )
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {

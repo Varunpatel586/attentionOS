@@ -24,47 +24,98 @@ class UsageStatsHelper(private val context: Context) {
      * @return Package name of the foreground app, or null if unable to determine
      */
     fun getCurrentForegroundApp(): String? {
+
         if (usageStatsManager == null) {
             Log.e(TAG, "UsageStatsManager not available")
             return null
         }
 
-        val currentTime = System.currentTimeMillis()
-        // Query events from the past 2 seconds to get the most recent app
-        val startTime = currentTime - 2000
+        val endTime = System.currentTimeMillis()
+        val startTime = endTime - 15000
 
         try {
-            val usageEvents = usageStatsManager.queryEvents(startTime, currentTime)
-            var lastEvent: UsageEvents.Event? = null
-            var lastEventTime = 0L
 
-            // Iterate through all events and find the most recent MOVE_TO_FOREGROUND event
+            // ---------- METHOD 1: UsageEvents ----------
+            val events = usageStatsManager.queryEvents(startTime, endTime)
             val event = UsageEvents.Event()
-            var lastPackageName: String? = null
-            
-            while (usageEvents.hasNextEvent()) {
-                usageEvents.getNextEvent(event)
-                
-                // We're interested in MOVE_TO_FOREGROUND events
+
+            var lastPackage: String? = null
+            var lastTime = 0L
+
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+
                 if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED ||
-                    event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                    
-                    if (event.timeStamp > lastEventTime) {
-                        lastEventTime = event.timeStamp
-                        lastPackageName = event.packageName
+                    event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND
+                ) {
+                    if (event.timeStamp > lastTime) {
+                        lastTime = event.timeStamp
+                        lastPackage = event.packageName
                     }
                 }
             }
 
-            // Return the package name of the most recent foreground app
-            return lastPackageName?.also {
-                Log.d(TAG, "Current foreground app: $it")
+            if (lastPackage != null) {
+                Log.d(TAG, "📱 Foreground detected (events): $lastPackage")
+                return lastPackage
+            }
+
+
+            // ---------- METHOD 2: UsageStats fallback ----------
+            val stats = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                startTime,
+                endTime
+            )
+
+            if (!stats.isNullOrEmpty()) {
+
+                var recentApp: String? = null
+                var recentTime = 0L
+
+                for (usage in stats) {
+                    if (usage.lastTimeUsed > recentTime) {
+                        recentTime = usage.lastTimeUsed
+                        recentApp = usage.packageName
+                    }
+                }
+
+                if (recentApp != null) {
+                    Log.d(TAG, "📱 Foreground detected (usage stats): $recentApp")
+                    return recentApp
+                }
+            }
+
+
+            // ---------- METHOD 3: ActivityManager fallback ----------
+            val activityManager =
+                context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+
+            val processes = activityManager.runningAppProcesses
+
+            if (!processes.isNullOrEmpty()) {
+
+                for (process in processes) {
+
+                    if (process.importance ==
+                        android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+                    ) {
+
+                        val pkg = process.pkgList?.firstOrNull()
+
+                        if (pkg != null) {
+                            Log.d(TAG, "📱 Foreground detected (ActivityManager): $pkg")
+                            return pkg
+                        }
+                    }
+                }
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error querying usage stats", e)
-            return null
+            Log.e(TAG, "Foreground detection failed", e)
         }
+
+        return null
     }
 
     /**

@@ -25,7 +25,7 @@ object SessionClassifier {
         "com.google.android.youtube",      // YouTube
         "com.facebook.katana",             // Facebook
         "com.snapchat.android",            // Snapchat
-        "com.zhiliaoapp.musically",        // TikTok
+        "com.zhiliaoapp.musically",        // TikTok/musically
         "com.twitter.android",             // Twitter/X
         "com.reddit.frontpage"             // Reddit
     )
@@ -34,7 +34,7 @@ object SessionClassifier {
      * Default detection threshold for distraction apps.
      * 20 seconds matches real passive consumption patterns (watching 1-2 reels).
      */
-    private const val DEFAULT_THRESHOLD_MS = 20_000L
+    private const val DEFAULT_THRESHOLD_MS = 10_000L //10s
 
     /**
      * Minimum number of scroll events for active scrolling detection.
@@ -54,13 +54,13 @@ object SessionClassifier {
      * YouTube: 30s (longer videos, but still quick to detect)
      */
     private val APP_THRESHOLDS = mapOf(
-        "com.instagram.android" to 20_000L,        // Instagram: 20s (1-2 reels)
+        "com.instagram.android" to 10_000L,        // Instagram: 10s (1-2 reels)
         "com.zhiliaoapp.musically" to 20_000L,     // TikTok: 20s (1-2 shorts)
         "com.snapchat.android" to 20_000L,         // Snapchat: 20s
-        "com.twitter.android" to 20_000L,          // Twitter: 20s
-        "com.reddit.frontpage" to 20_000L,         // Reddit: 20s  
+        "com.twitter.android" to 10_000L,          // Twitter: 50s
+        "com.reddit.frontpage" to 15_000L,         // Reddit: 50s
         "com.facebook.katana" to 20_000L,          // Facebook: 20s
-        "com.google.android.youtube" to 30_000L    // YouTube: 30s (longer content)
+        "com.google.android.youtube" to 8_000L    // YouTube: 8s (longer content)
     )
 
     /**

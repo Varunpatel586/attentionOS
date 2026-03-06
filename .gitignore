@@ -77,3 +77,5 @@ yarn-error.log
 #kiro
 .kiro
 settings.json
+
+/aider-env
