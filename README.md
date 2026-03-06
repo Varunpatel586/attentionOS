@@ -133,6 +133,8 @@ Then run:
 ```bash
 npm start
 npm run android
+# OR
+npx react-native run-android
 ```
 
 If native changes were made:
