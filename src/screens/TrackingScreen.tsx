@@ -106,27 +106,28 @@ const TrackingScreen = () => {
    * Start tracking service.
    */
   const handleStartTracking = () => {
-    // Check if all permissions are granted
-    if (!permissions.usageStats || !permissions.accessibility) {
-      Alert.alert(
-        'Permissions Required',
-        'Please grant all required permissions before starting tracking.',
-        [{ text: 'OK' }],
-      );
-      return;
-    }
-
     AttentionOSBridge.startTracking();
-    setIsTracking(true);
-    Alert.alert(
-      'Tracking Started',
-      'AttentionOS is now monitoring your app usage.',
-    );
 
-    // Update widgets with new tracking state
-    setTimeout(() => {
-      TrackingSyncService.forceSync();
-    }, 1000);
+    // Re-check status after a short delay (user may be shown Settings dialogs)
+    setTimeout(async () => {
+      try {
+        const running = await AttentionOSBridge.isTrackingRunning();
+        setIsTracking(running);
+        if (running) {
+          Alert.alert(
+            'Tracking Started',
+            'AttentionOS is now monitoring your app usage.',
+          );
+
+          // Update widgets with new tracking state
+          setTimeout(() => {
+            TrackingSyncService.forceSync();
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Error checking tracking status:', error);
+      }
+    }, 500);
   };
 
   /**

@@ -17,6 +17,7 @@ import com.attentionos.R
 import com.attentionos.accessibility.ScrollDetectionAccessibilityService
 import com.attentionos.database.AppDatabase
 import com.attentionos.database.AppSession
+import com.attentionos.receiver.StopTrackingReceiver
 import com.attentionos.repository.SessionRepository
 import com.attentionos.tracking.SessionClassifier
 import com.attentionos.tracking.UsageStatsHelper
@@ -572,11 +573,29 @@ class TrackingForegroundService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Action to stop tracking from the notification
+        val stopIntent = Intent(this, StopTrackingReceiver::class.java).apply {
+            action = StopTrackingReceiver.ACTION_STOP_TRACKING
+        }
+        val stopPendingIntent = PendingIntent.getBroadcast(
+            this,
+            0,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("AttentionOS Tracking Active")
             .setContentText("Monitoring app usage for distracted scrolling")
             .setSmallIcon(R.mipmap.ic_launcher) // Use app icon
             .setContentIntent(pendingIntent)
+            .addAction(
+                NotificationCompat.Action(
+                    0,
+                    "Stop",
+                    stopPendingIntent
+                )
+            )
             .setOngoing(true) // Cannot be dismissed by user
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)

@@ -131,11 +131,9 @@ const HomeScreen = () => {
       try {
         const isRunning = await AttentionOSBridge.isTrackingRunning();
         if (!isRunning) {
-          // Check if permissions are granted
-          const permissions = await AttentionOSBridge.checkPermissions();
-          if (permissions.usageStats && permissions.accessibility) {
-            AttentionOSBridge.startTracking();
-          }
+          // Call into native startTracking. Native side will either start the service
+          // or show permission dialogs if required permissions are missing.
+          AttentionOSBridge.startTracking();
         }
       } catch (error) {
         console.error('Error starting tracking:', error);

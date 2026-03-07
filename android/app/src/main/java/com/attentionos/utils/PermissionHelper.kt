@@ -1,6 +1,8 @@
 package com.attentionos.utils
 
+import android.app.AlertDialog
 import android.app.AppOpsManager
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -11,8 +13,17 @@ import androidx.core.content.ContextCompat
 /**
  * Utility class for checking and requesting permissions required by AttentionOS.
  * Handles both standard and special permissions (Usage Stats, Accessibility).
+ * Shows native dialogs to request permissions from the user.
  */
 object PermissionHelper {
+
+    private fun runOnUiThread(activity: Activity, block: () -> Unit) {
+        if (activity.isFinishing) return
+        activity.runOnUiThread {
+            if (activity.isFinishing) return@runOnUiThread
+            block()
+        }
+    }
 
     /**
      * Check if the app has Usage Stats permission (PACKAGE_USAGE_STATS).
@@ -94,6 +105,82 @@ object PermissionHelper {
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else {
             true // Not required on older versions
+        }
+    }
+
+    /**
+     * Show a dialog requesting Accessibility permission.
+     * The dialog allows the user to directly open accessibility settings.
+     */
+    fun showAccessibilityPermissionDialog(activity: Activity) {
+        runOnUiThread(activity) {
+            AlertDialog.Builder(activity)
+                .setTitle("Enable Tracking")
+                .setMessage(
+                    "AttentionOS needs Accessibility Service permission to detect scrolling behavior in apps like Instagram and YouTube.\n\n" +
+                    "We do NOT read your messages, posts, or any personal content. We ONLY detect scroll events.\n\n" +
+                    "Please enable 'AttentionOS' in Accessibility Settings to continue."
+                )
+                .setPositiveButton("Open Settings") { _, _ ->
+                    openAccessibilitySettings(activity)
+                }
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show()
+        }
+    }
+
+    /**
+     * Show a dialog requesting Usage Stats permission.
+     * The dialog allows the user to directly open usage stats settings.
+     */
+    fun showUsageStatsPermissionDialog(activity: Activity) {
+        runOnUiThread(activity) {
+            AlertDialog.Builder(activity)
+                .setTitle("Enable Usage Stats Access")
+                .setMessage(
+                    "AttentionOS needs access to usage stats to detect which app is currently open. " +
+                    "This is required for tracking distracted scrolling.\n\n" +
+                    "Please grant 'AttentionOS' permission to access usage stats."
+                )
+                .setPositiveButton("Open Settings") { _, _ ->
+                    openUsageStatsSettings(activity)
+                }
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show()
+        }
+    }
+
+    /**
+     * Show a dialog requesting both Usage Stats and Accessibility permissions.
+     * The dialog allows the user to choose which permission to grant first.
+     */
+    fun showBothPermissionsDialog(activity: Activity) {
+        runOnUiThread(activity) {
+            AlertDialog.Builder(activity)
+                .setTitle("Permissions Required")
+                .setMessage(
+                    "AttentionOS requires two permissions to track distracted scrolling:\n\n" +
+                    "1. Accessibility Service - to detect scrolling behavior\n" +
+                    "2. Usage Stats - to identify which app is open\n\n" +
+                    "Which would you like to enable first?"
+                )
+                .setPositiveButton("Accessibility") { _, _ ->
+                    openAccessibilitySettings(activity)
+                }
+                .setNeutralButton("Usage Stats") { _, _ ->
+                    openUsageStatsSettings(activity)
+                }
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show()
         }
     }
 }

@@ -11,8 +11,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
     <!-- Required for usage stats (special permission, requires user to grant in Settings) -->
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        android:protectionLevel="signature|privileged|appop" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     
     <!-- Required for floating overlay bubble -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -64,6 +63,12 @@
       <!-- Widget Update Service -->
       <service
           android:name=".service.WidgetUpdateService"
+          android:enabled="true"
+          android:exported="false" />
+
+      <!-- Notification action receiver to stop tracking -->
+      <receiver
+          android:name=".receiver.StopTrackingReceiver"
           android:enabled="true"
           android:exported="false" />
 

@@ -1,5 +1,6 @@
 import FirebaseService from './FirebaseService';
 import { DeviceEventEmitter } from 'react-native';
+import AttentionOSBridge from '../utils/AttentionOSBridge';
 
 const POMODORO_FOCUS = 25 * 60; // 25 min
 const POMODORO_BREAK = 5 * 60; // 5 min
@@ -208,6 +209,13 @@ class TimerService {
     this.state.isRunning = !this.state.isRunning;
 
     if (this.state.isRunning) {
+      // Ensure distracted scrolling tracking is running during focus sessions.
+      // Native side will start the service or show permission dialogs.
+      try {
+        AttentionOSBridge.startTracking();
+      } catch (error) {
+        console.error('Failed to start native tracking from timer:', error);
+      }
       this.startTimerEngine();
     } else {
       if (this.interval) {

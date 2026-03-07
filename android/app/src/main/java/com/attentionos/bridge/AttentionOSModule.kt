@@ -37,12 +37,42 @@ class AttentionOSModule(reactContext: ReactApplicationContext) : ReactContextBas
 
     /**
      * Start the tracking service.
+     * Checks for required permissions (Accessibility and Usage Stats) before starting.
+     * If permissions are missing, shows an appropriate dialog to the user.
      */
     @ReactMethod
     fun startTracking() {
         Log.i(TAG, "startTracking called from React Native")
         reactApplicationContext.currentActivity?.let { activity ->
-            TrackingForegroundService.start(activity)
+            // Check if required permissions are granted
+            val hasAccessibility = PermissionHelper.hasAccessibilityPermission(
+                activity,
+                "com.attentionos.accessibility.ScrollDetectionAccessibilityService"
+            )
+            val hasUsageStats = PermissionHelper.hasUsageStatsPermission(activity)
+
+            when {
+                !hasAccessibility && !hasUsageStats -> {
+                    // Both permissions missing
+                    Log.w(TAG, "Both Accessibility and Usage Stats permissions missing")
+                    PermissionHelper.showBothPermissionsDialog(activity)
+                }
+                !hasAccessibility -> {
+                    // Only accessibility permission missing
+                    Log.w(TAG, "Accessibility permission missing")
+                    PermissionHelper.showAccessibilityPermissionDialog(activity)
+                }
+                !hasUsageStats -> {
+                    // Only usage stats permission missing
+                    Log.w(TAG, "Usage Stats permission missing")
+                    PermissionHelper.showUsageStatsPermissionDialog(activity)
+                }
+                else -> {
+                    // All permissions granted - start tracking
+                    Log.i(TAG, "All permissions granted - starting tracking service")
+                    TrackingForegroundService.start(activity)
+                }
+            }
         } ?: run {
             Log.e(TAG, "Cannot start tracking: no current activity")
         }
