@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   timerNumber: { fontSize: 100, fontWeight: '800', color: '#262626' },
   timerLabel: { fontSize: 24, fontWeight: '700', marginLeft: 4 },
 
-  phaseText: { marginBottom: 20, fontWeight: '600' },
+  phaseText: { marginTop: -40, marginBottom: 20, fontWeight: '600' },
 
   controlsPill: {
     flexDirection: 'row',

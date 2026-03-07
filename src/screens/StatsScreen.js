@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
@@ -27,6 +29,9 @@ const StatsScreen = () => {
     contextSwitches: 0,
     bigThreeProgress: [],
   });
+
+  // State to control our custom Reset Modal visibility
+  const [isResetModalVisible, setIsResetModalVisible] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -65,8 +70,10 @@ const StatsScreen = () => {
     if (data) {
       setStats(prev => ({
         ...prev,
-        focusedTime: data.todayFocusTime || 0,
-        contextSwitches: data.todayContextSwitches || 0,
+        //Check the stats map first, fallback to root if necessary
+        focusedTime: data.stats?.todayFocusTime ?? data.todayFocusTime ?? 0,
+        contextSwitches:
+          data.stats?.todayContextSwitches ?? data.todayContextSwitches ?? 0,
         productiveSlot: data.mostProductiveSlot || '10–12 AM',
       }));
     }
@@ -155,13 +162,15 @@ const StatsScreen = () => {
     return tasksGained || 1;
   };
 
-  const handleReset = () => {
+  const performReset = () => {
     // Implement reset logic - could reset daily stats
     if (!user) return;
 
+    // Use dot notation to reset the nested stats
     firestore().collection('users').doc(user.uid).update({
-      todayFocusTime: 0,
-      todayContextSwitches: 0,
+      'stats.todayFocusTime': 0,
+      'stats.todayContextSwitches': 0,
+      'stats.todayScrollTime': 0, // Reset scroll time too
     });
 
     // Reset todos completion
@@ -176,7 +185,21 @@ const StatsScreen = () => {
           batch.update(doc.ref, { completed: false });
         });
         return batch.commit();
-      });
+      })
+      .then(() => {
+        // Optional: Re-fetch the stats to immediately update the UI after the reset
+        loadAllStats();
+      })
+      .catch(error => console.error('Error resetting data:', error));
+  };
+
+  const handleReset = () => {
+    if (!user) return;
+    setIsResetModalVisible(true); // Open the custom Reset Modal
+  };
+
+  const closeResetModal = () => {
+    setIsResetModalVisible(false); // Close the custom Reset Modal
   };
 
   if (!user || loading) {
@@ -309,6 +332,45 @@ const StatsScreen = () => {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* --- NEW: CUSTOM RESET ALERT MODAL --- */}
+      <Modal
+        visible={isResetModalVisible}
+        transparent={true} // For a dim overlay background
+        animationType="fade" // Clean, simple appear animation
+        onRequestClose={closeResetModal} // Android back button closes it
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={closeResetModal} // Closes modal if you tap outside the card
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Reset Daily Insights?</Text>
+            <Text style={styles.modalDescription}>
+              Are you sure you want to reset? This will clear your scroll time,
+              focus time, and context switches for today.
+            </Text>
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={closeResetModal}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalResetButton}
+                onPress={() => {
+                  closeResetModal(); // Close modal first
+                  performReset(); // Then execute the reset
+                }}
+              >
+                <Text style={styles.modalResetButtonText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Bottom Navbar */}
       <BottomNavbar />
     </SafeAreaProvider>
@@ -318,7 +380,7 @@ const StatsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2EFE9',
+    backgroundColor: '#F2EFE9', // From Main screen
   },
   loadingContainer: {
     flex: 1,
@@ -350,7 +412,7 @@ const styles = StyleSheet.create({
 
   // --- 1. Summary Card ---
   summaryCard: {
-    backgroundColor: '#E9E5DC',
+    backgroundColor: '#E9E5DC', // Light Grey card background
     borderRadius: 20,
     paddingVertical: 20,
     paddingRight: 20,
@@ -588,6 +650,71 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFF',
     fontFamily: 'Poppins',
+  },
+
+  // --- 5. Custom Reset Modal Styling ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)', // Full-screen dimming overlay
+    justifyContent: 'center', // Center card vertically
+    alignItems: 'center', // Center card horizontally
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#E9E5DC', // Light Grey card background
+    borderRadius: 20, // Rounded corners matching your UI
+    padding: 25,
+    width: '90%', // centered within overlay
+    maxWidth: 400, // standard width
+    // Subtle shadow for elevated look
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#262626',
+    fontFamily: 'Poppins',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 15,
+    color: '#262626',
+    fontFamily: 'Poppins',
+    lineHeight: 22,
+    marginBottom: 25,
+    textAlign: 'center',
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around', // for Cancel / Reset side-by-side
+    alignItems: 'center',
+  },
+  // "Cancel" button is simple grey text button
+  modalCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  modalCancelButtonText: {
+    fontSize: 16,
+    color: '#262626', // Standard text color
+    fontFamily: 'Poppins',
+    fontWeight: '500',
+  },
+  // "Reset" button uses red text to mark destructive action
+  modalResetButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  modalResetButtonText: {
+    fontSize: 16,
+    color: '#FF6B6B', // Red text for standard reset action
+    fontFamily: 'Poppins',
+    fontWeight: '700',
   },
 });
 

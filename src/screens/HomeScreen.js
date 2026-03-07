@@ -82,7 +82,9 @@ const HomeScreen = () => {
         const data = doc.data();
         if (data) {
           setUserName(data.name || 'Harsheel');
-          setFocusTime(data.todayFocusTime || 0);
+          const currentFocusTime =
+            data.stats?.todayFocusTime ?? data.todayFocusTime ?? 0;
+          setFocusTime(currentFocusTime);
           setActiveMode(data.activeMode || 'focus');
         }
       });
@@ -405,7 +407,7 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F2EFE8', marginBottom: 30 },
+  root: { flex: 1, backgroundColor: '#F2EFE8' },
   container: { flex: 1 },
   topInteractiveLayer: { zIndex: 100 },
   dimOverlay: {
