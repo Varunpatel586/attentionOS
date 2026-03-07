@@ -484,8 +484,8 @@ class TrackingForegroundService : Service() {
             return
         }
         
-        // Show overlay after 20 seconds of engagement and only if not already shown
-        if (totalTime >= 20_000L && overlayShownTime == 0L) {
+        // Show overlay after 5 seconds of engagement and only if not already shown
+        if (totalTime >= 5_000L && overlayShownTime == 0L) {
             if (OverlayPermissionHelper.hasPermission(this)) {
                 try {
                     floatingOverlay.showOverlay(this)
