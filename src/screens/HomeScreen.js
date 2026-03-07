@@ -107,8 +107,17 @@ const HomeScreen = () => {
         const data = doc.data();
         if (data) {
           setUserName(data.name || 'Harsheel');
-          setFocusTime(data.todayFocusTime || 0);
           setActiveMode(data.activeMode || 'focus');
+          
+          // Only update focusTime if we're NOT currently incrementing it locally
+          // logic: if mode is scroll, or if the diff is significant (e.g. initial load)
+          const remoteTime = data.todayFocusTime || 0;
+          setFocusTime(currentLocal => {
+            if (activeMode === 'scroll') return remoteTime;
+            // During focus, only allow remote to "jump" if it's much larger (sync from elsewhere)
+            if (Math.abs(currentLocal - remoteTime) > 60) return remoteTime;
+            return currentLocal;
+          });
         }
       });
 
@@ -145,6 +154,34 @@ const HomeScreen = () => {
       clearInterval(scrollTimeInterval);
     };
   }, [user]);
+
+  /* ---------------- FOCUS STOPWATCH ---------------- */
+
+  useEffect(() => {
+    if (activeMode !== 'focus' || !user) return;
+
+    // Increment local state every second
+    const stopwatchInterval = setInterval(() => {
+      setFocusTime(prev => prev + 1);
+    }, 1000);
+
+    return () => {
+      clearInterval(stopwatchInterval);
+    };
+  }, [activeMode, user]);
+
+  // Refined Sync Logic: Send local state to Firestore only on change or periodically
+  const lastSyncedTime = useRef(0);
+  useEffect(() => {
+    if (activeMode === 'focus' && user && Math.abs(focusTime - lastSyncedTime.current) >= 30) {
+      lastSyncedTime.current = focusTime;
+      firestore()
+        .collection('users')
+        .doc(user.uid)
+        .update({ todayFocusTime: focusTime })
+        .catch(err => console.error('Periodic sync err:', err));
+    }
+  }, [focusTime, activeMode, user]);
 
   const switchActiveMode = async mode => {
     if (!user) return;
@@ -201,6 +238,15 @@ const HomeScreen = () => {
     // Stop tracking when switching to scroll mode
     if (mode === 'scroll') {
       try {
+        // Immediate sync of focus time before switching
+        if (user) {
+          await firestore()
+            .collection('users')
+            .doc(user.uid)
+            .update({ todayFocusTime: focusTime });
+          lastSyncedTime.current = focusTime;
+        }
+
         const isRunning = await AttentionOSBridge.isTrackingRunning();
         if (isRunning) {
           AttentionOSBridge.stopTracking();
