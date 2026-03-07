@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import BackgroundTimer from 'react-native-background-timer';
+import BackgroundService from 'react-native-background-actions';
 import {
   StyleSheet,
   View,
@@ -74,35 +76,53 @@ const TimerScreen = () => {
   /* ---------------- TIMER ENGINE ---------------- */
 
   useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    const sleep = time => new Promise(resolve => setTimeout(resolve, time));
+
+    const backgroundTask = async (taskDataArguments) => {
+      while (isRunning) {
+        setSeconds(prev => {
+          if (activeTab === 'Pomodoro') {
+            if (!isBreak) {
+              updateFocusTime();
+            }
+            if (prev === 0) {
+              const nextIsBreak = !isBreak;
+              setIsBreak(nextIsBreak);
+              return nextIsBreak ? POMODORO_BREAK : POMODORO_FOCUS;
+            }
+            return prev - 1;
+          } else {
+            updateFocusTime();
+            return prev + 1;
+          }
+        });
+        await sleep(1000);
+      }
+    };
+
+    const options = {
+      taskName: 'AttentionOSTimer',
+      taskTitle: 'Timer Running',
+      taskDesc: 'Your focus timer is running.',
+      taskIcon: {
+        name: 'ic_launcher',
+        type: 'mipmap',
+      },
+      color: '#ff00ff',
+      linkingURI: '',
+      parameters: {},
+    };
+
+    if (isRunning) {
+      BackgroundService.start(backgroundTask, options);
+    } else {
+      BackgroundService.stop();
     }
 
-    if (!isRunning) return;
-
-    intervalRef.current = setInterval(() => {
-      setSeconds(prev => {
-        if (activeTab === 'Pomodoro') {
-          // Only increment focus time during focus sessions (not breaks)
-          if (!isBreak) {
-            updateFocusTime();
-          }
-
-          if (prev === 0) {
-            const nextIsBreak = !isBreak;
-            setIsBreak(nextIsBreak);
-            return nextIsBreak ? POMODORO_BREAK : POMODORO_FOCUS;
-          }
-          return prev - 1;
-        } else {
-          // Infinite mode - always counting focus time
-          updateFocusTime();
-          return prev + 1;
-        }
-      });
-    }, 1000);
-
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      BackgroundService.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, activeTab, isBreak]);
 
   /* ---------------- CONTROLS ---------------- */
