@@ -7,7 +7,6 @@ import android.content.SharedPreferences
 import android.os.IBinder
 import android.util.Log
 import com.attentionos.widgets.FocusScrollWidgetProvider
-import com.attentionos.widgets.FocusScrollSmallWidgetProvider
 import com.attentionos.widgets.TasksWidgetProvider
 import com.attentionos.widgets.TimerWidgetProvider
 import org.json.JSONArray
@@ -55,12 +54,12 @@ class WidgetUpdateService : Service() {
 
         // Trigger widget updates
         FocusScrollWidgetProvider.triggerUpdate(this)
-        FocusScrollSmallWidgetProvider.triggerUpdate(this)
         
         Log.d(TAG, "Updated focus/scroll data: focus=$focusSeconds, scroll=$scrollSeconds")
     }
 
     private fun updateTasksData(tasksJson: String) {
+        android.util.Log.d(TAG, "💾 Saving tasks to SharedPreferences: $tasksJson")
         sharedPreferences.edit()
             .putString("tasks", tasksJson)
             .apply()
@@ -68,10 +67,11 @@ class WidgetUpdateService : Service() {
         // Trigger widget update
         TasksWidgetProvider.triggerUpdate(this)
         
-        Log.d(TAG, "Updated tasks data: $tasksJson")
+        android.util.Log.d(TAG, "Updated tasks data: $tasksJson")
     }
 
     private fun updateTimerData(seconds: Long, running: Boolean) {
+        android.util.Log.d(TAG, "💾 Saving timer to SharedPreferences: seconds=$seconds, running=$running")
         sharedPreferences.edit()
             .putLong("timerSeconds", seconds)
             .putBoolean("timerRunning", running)
@@ -80,12 +80,11 @@ class WidgetUpdateService : Service() {
         // Trigger widget update
         TimerWidgetProvider.triggerUpdate(this)
         
-        Log.d(TAG, "Updated timer data: seconds=$seconds, running=$running")
+        android.util.Log.d(TAG, "Updated timer data: seconds=$seconds, running=$running")
     }
 
     private fun refreshAllWidgets() {
         FocusScrollWidgetProvider.triggerUpdate(this)
-        FocusScrollSmallWidgetProvider.triggerUpdate(this)
         TasksWidgetProvider.triggerUpdate(this)
         TimerWidgetProvider.triggerUpdate(this)
         

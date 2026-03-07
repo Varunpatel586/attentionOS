@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.widget.RemoteViews
 import com.attentionos.MainActivity
 import com.attentionos.R
@@ -35,6 +36,15 @@ class TasksWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        updateAppWidget(context, appWidgetManager, appWidgetId)
+    }
+
     companion object {
         private const val ACTION_UPDATE_WIDGET = "com.attentionos.UPDATE_TASKS_WIDGET"
 
@@ -49,19 +59,26 @@ class TasksWidgetProvider : AppWidgetProvider() {
             val prefs = context.getSharedPreferences("widget_data", Context.MODE_PRIVATE)
             val tasksJson = prefs.getString("tasks", "[]") ?: "[]"
             
+            android.util.Log.d("TasksWidget", "TasksJson: $tasksJson")
+            
             try {
                 val tasksArray = JSONArray(tasksJson)
                 val tasks = mutableListOf<String>()
                 
+                android.util.Log.d("TasksWidget", "Tasks array length: ${tasksArray.length()}")
+                
                 for (i in 0 until minOf(3, tasksArray.length())) {
                     val task = tasksArray.getJSONObject(i)
-                    tasks.add(task.optString("title", ""))
+                    val title = task.optString("title", "")
+                    tasks.add(title)
+                    android.util.Log.d("TasksWidget", "Task $i: $title")
                 }
 
                 // Update task views
                 if (tasks.isNotEmpty()) {
                     views.setTextViewText(R.id.task1Text, tasks[0])
                     views.setViewVisibility(R.id.task1Row, android.view.View.VISIBLE)
+                    android.util.Log.d("TasksWidget", "Set task1: ${tasks[0]}")
                 } else {
                     views.setViewVisibility(R.id.task1Row, android.view.View.GONE)
                 }
@@ -69,6 +86,7 @@ class TasksWidgetProvider : AppWidgetProvider() {
                 if (tasks.size > 1) {
                     views.setTextViewText(R.id.task2Text, tasks[1])
                     views.setViewVisibility(R.id.task2Row, android.view.View.VISIBLE)
+                    android.util.Log.d("TasksWidget", "Set task2: ${tasks[1]}")
                 } else {
                     views.setViewVisibility(R.id.task2Row, android.view.View.GONE)
                 }
@@ -76,12 +94,14 @@ class TasksWidgetProvider : AppWidgetProvider() {
                 if (tasks.size > 2) {
                     views.setTextViewText(R.id.task3Text, tasks[2])
                     views.setViewVisibility(R.id.task3Row, android.view.View.VISIBLE)
+                    android.util.Log.d("TasksWidget", "Set task3: ${tasks[2]}")
                 } else {
                     views.setViewVisibility(R.id.task3Row, android.view.View.GONE)
                 }
 
             } catch (e: Exception) {
                 // Handle JSON parsing error
+                android.util.Log.e("TasksWidget", "Error parsing tasks JSON", e)
                 views.setViewVisibility(R.id.task1Row, android.view.View.GONE)
                 views.setViewVisibility(R.id.task2Row, android.view.View.GONE)
                 views.setViewVisibility(R.id.task3Row, android.view.View.GONE)
@@ -99,6 +119,7 @@ class TasksWidgetProvider : AppWidgetProvider() {
 
             // Update the widget
             appWidgetManager.updateAppWidget(appWidgetId, views)
+            android.util.Log.d("TasksWidget", "Widget updated")
         }
 
         fun triggerUpdate(context: Context) {

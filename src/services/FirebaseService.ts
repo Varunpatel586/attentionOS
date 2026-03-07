@@ -29,6 +29,8 @@ export interface UserStats {
   currentTimerSeconds: number;
   isTimerRunning: boolean;
   lastUpdated: Date;
+  timerState?: any; // Timer state object
+  todayContextSwitches?: number; // Number of context switches today
 }
 
 export interface UserData {
@@ -78,7 +80,7 @@ class FirebaseService {
             isTimerRunning: false,
             lastUpdated: new Date(),
           },
-          tasks: [],
+          tasks: this.getSampleTasks(),
           createdAt: new Date(),
         };
 
@@ -87,6 +89,39 @@ class FirebaseService {
     } catch (error) {
       console.error('Error initializing user data:', error);
     }
+  }
+
+  /**
+   * Get sample tasks for initial setup
+   */
+  private getSampleTasks(): Task[] {
+    const now = new Date();
+    return [
+      {
+        id: '1',
+        title: 'Complete project documentation',
+        done: false,
+        createdAt: now,
+        dueDate: now,
+        priority: 'high',
+      },
+      {
+        id: '2',
+        title: 'Review pull requests',
+        done: false,
+        createdAt: now,
+        dueDate: now,
+        priority: 'medium',
+      },
+      {
+        id: '3',
+        title: 'Update dependencies',
+        done: true,
+        createdAt: now,
+        dueDate: now,
+        priority: 'low',
+      },
+    ];
   }
 
   /**
@@ -274,38 +309,28 @@ class FirebaseService {
     if (!this.currentUser) return [];
 
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const tasksSnapshot = await firestore()
+      // Get tasks from the todos sub-collection
+      const todosSnapshot = await firestore()
         .collection('users')
         .doc(this.currentUser.uid)
-        .collection('tasks')
-        .where('dueDate', '>=', today)
-        .where('dueDate', '<', tomorrow)
-        .orderBy('dueDate')
+        .collection('todos')
         .get();
 
-      return tasksSnapshot.docs.map(doc => {
-        const task = doc.data() as Task;
-        const createdAtTimestamp = task.createdAt as any;
-        const dueDateTimestamp = task.dueDate as any;
-        return {
-          ...task,
-          createdAt: createdAtTimestamp?.toDate
-            ? createdAtTimestamp.toDate()
-            : createdAtTimestamp instanceof Date
-            ? createdAtTimestamp
-            : new Date(),
-          dueDate: dueDateTimestamp?.toDate
-            ? dueDateTimestamp.toDate()
-            : dueDateTimestamp instanceof Date
-            ? dueDateTimestamp
-            : dueDateTimestamp,
-        };
+      const tasks: Task[] = [];
+      todosSnapshot.forEach(doc => {
+        const taskData = doc.data();
+        tasks.push({
+          id: doc.id,
+          title: taskData.title || 'Untitled Task',
+          done: taskData.done || false,
+          createdAt: taskData.createdAt?.toDate?.() || new Date(),
+          dueDate: taskData.dueDate?.toDate?.(),
+          priority: taskData.priority,
+        });
       });
+
+      console.log('📝 Fetched tasks from todos sub-collection:', tasks.length);
+      return tasks;
     } catch (error) {
       console.error('Error getting today tasks:', error);
       return [];
@@ -319,27 +344,12 @@ class FirebaseService {
     if (!this.currentUser) throw new Error('User not authenticated');
 
     try {
-      const batch = firestore().batch();
-      const userRef = firestore().collection('users').doc(this.currentUser.uid);
-
-      // Clear existing tasks in subcollection
-      const existingTasks = await userRef.collection('tasks').get();
-      existingTasks.docs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-
-      // Add new tasks
-      tasks.forEach(task => {
-        const taskRef = userRef.collection('tasks').doc(task.id);
-        batch.set(taskRef, task);
-      });
-
-      // Update user's tasks array
-      batch.update(userRef, {
+      // Update user's tasks array directly
+      await firestore().collection('users').doc(this.currentUser.uid).update({
         tasks: tasks,
       });
 
-      await batch.commit();
+      console.log('✅ Tasks updated successfully:', tasks.length);
     } catch (error) {
       console.error('Error updating tasks:', error);
       throw error;
@@ -418,6 +428,92 @@ class FirebaseService {
         } else {
           callback(null);
         }
+      });
+
+    this.unsubscribeFunctions.push(unsubscribe);
+    return unsubscribe;
+  }
+
+  /**
+   * Update a specific field in user stats
+   */
+  async updateField(fieldPath: string, value: any): Promise<void> {
+    if (!this.currentUser) throw new Error('User not authenticated');
+
+    try {
+      const updateData: any = {};
+      const fieldParts = fieldPath.split('.');
+
+      if (fieldParts.length === 2) {
+        updateData[fieldParts[0]] = {
+          [fieldParts[1]]: value,
+          lastUpdated: new Date(),
+        };
+      } else {
+        updateData[fieldPath] = value;
+      }
+
+      await firestore()
+        .collection('users')
+        .doc(this.currentUser.uid)
+        .set(updateData, { merge: true });
+
+      console.log(`✅ Field ${fieldPath} updated successfully:`, value);
+    } catch (error) {
+      console.error(`❌ Error updating field ${fieldPath}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update timer state with full state object
+   */
+  async updateTimerState(timerState: any): Promise<void> {
+    if (!this.currentUser) throw new Error('User not authenticated');
+
+    try {
+      await firestore()
+        .collection('users')
+        .doc(this.currentUser.uid)
+        .set(
+          {
+            stats: {
+              currentTimerSeconds: timerState.seconds,
+              isTimerRunning: timerState.isRunning,
+              timerState: timerState,
+              lastUpdated: new Date(),
+            },
+          },
+          { merge: true },
+        );
+
+      console.log('✅ Timer state updated successfully:', timerState);
+    } catch (error) {
+      console.error('❌ Error updating timer state:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribe to active tasks (bigThree with active=true)
+   */
+  subscribeToActiveTasks(callback: (tasks: any[]) => void): () => void {
+    if (!this.currentUser) {
+      callback([]);
+      return () => {};
+    }
+
+    const unsubscribe = firestore()
+      .collection('users')
+      .doc(this.currentUser.uid)
+      .collection('bigThree')
+      .where('active', '==', true)
+      .onSnapshot(snapshot => {
+        const tasks = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        callback(tasks);
       });
 
     this.unsubscribeFunctions.push(unsubscribe);

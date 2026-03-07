@@ -1,77 +1,97 @@
-import React, { useState, useEffect } from 'react'
-import { View, Text, Button, StyleSheet, Alert } from 'react-native'
-import { 
-  WidgetUpdater, 
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, StyleSheet, Alert } from 'react-native';
+import {
+  WidgetUpdater,
   updateWithRealData,
   syncWithNativeTracking,
-  controlTimer
-} from '../utils/widgetUpdater'
-import FirebaseService, { Task } from '../services/FirebaseService'
-import { DeviceEventEmitter } from 'react-native'
+  controlTimer,
+} from '../utils/widgetUpdater';
+import FirebaseService, { Task } from '../services/FirebaseService';
+import TrackingSyncService from '../services/TrackingSyncService';
+import { DeviceEventEmitter } from 'react-native';
 
 const WidgetExample: React.FC = () => {
-  const [userData, setUserData] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [userData, setUserData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Load real user data from Firebase
-    loadUserData()
+    loadUserData();
 
     // Listen for timer control events from widget
-    const timerPauseSubscription = DeviceEventEmitter.addListener('timerPause', () => {
-      controlTimer('pause')
-      Alert.alert('Timer Paused', 'Timer was paused from widget')
-    })
+    const timerPauseSubscription = DeviceEventEmitter.addListener(
+      'timerPause',
+      () => {
+        controlTimer('pause');
+        Alert.alert('Timer Paused', 'Timer was paused from widget');
+      },
+    );
 
-    const timerResumeSubscription = DeviceEventEmitter.addListener('timerResume', () => {
-      controlTimer('resume')
-      Alert.alert('Timer Resumed', 'Timer was resumed from widget')
-    })
+    const timerResumeSubscription = DeviceEventEmitter.addListener(
+      'timerResume',
+      () => {
+        controlTimer('resume');
+        Alert.alert('Timer Resumed', 'Timer was resumed from widget');
+      },
+    );
 
-    const timerResetSubscription = DeviceEventEmitter.addListener('timerReset', () => {
-      controlTimer('reset')
-      Alert.alert('Timer Reset', 'Timer was reset from widget')
-    })
+    const timerResetSubscription = DeviceEventEmitter.addListener(
+      'timerReset',
+      () => {
+        controlTimer('reset');
+        Alert.alert('Timer Reset', 'Timer was reset from widget');
+      },
+    );
 
     return () => {
-      timerPauseSubscription.remove()
-      timerResumeSubscription.remove()
-      timerResetSubscription.remove()
-    }
-  }, [])
+      timerPauseSubscription.remove();
+      timerResumeSubscription.remove();
+      timerResetSubscription.remove();
+    };
+  }, []);
 
   const loadUserData = async () => {
     try {
-      setIsLoading(true)
-      const data = await FirebaseService.getUserData()
-      setUserData(data)
+      setIsLoading(true);
+      const data = await FirebaseService.getUserData();
+      setUserData(data);
     } catch (error) {
-      console.error('Error loading user data:', error)
-      Alert.alert('Error', 'Failed to load user data')
+      console.error('Error loading user data:', error);
+      Alert.alert('Error', 'Failed to load user data');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleSyncWithNative = async () => {
     try {
-      await syncWithNativeTracking()
-      Alert.alert('Success', 'Synced with native tracking data')
+      await syncWithNativeTracking();
+      Alert.alert('Success', 'Synced with native tracking data');
     } catch (error) {
-      console.error('Error syncing with native:', error)
-      Alert.alert('Error', 'Failed to sync with native tracking')
+      console.error('Error syncing with native:', error);
+      Alert.alert('Error', 'Failed to sync with native tracking');
     }
-  }
+  };
 
   const handleRefreshWidgets = async () => {
     try {
-      await updateWithRealData()
-      Alert.alert('Success', 'Widgets refreshed with real data')
+      await updateWithRealData();
+      Alert.alert('Success', 'Widgets refreshed with real data');
     } catch (error) {
-      console.error('Error refreshing widgets:', error)
-      Alert.alert('Error', 'Failed to refresh widgets')
+      console.error('Error refreshing widgets:', error);
+      Alert.alert('Error', 'Failed to refresh widgets');
     }
-  }
+  };
+
+  const handleForceUpdateTasks = async () => {
+    try {
+      await TrackingSyncService.forceUpdateTasks();
+      Alert.alert('Success', 'Tasks force updated');
+    } catch (error) {
+      console.error('Error force updating tasks:', error);
+      Alert.alert('Error', 'Failed to force update tasks');
+    }
+  };
 
   const handleAddSampleTask = async () => {
     try {
@@ -82,54 +102,118 @@ const WidgetExample: React.FC = () => {
         createdAt: new Date(),
         dueDate: new Date(), // Due today
         priority: 'medium',
-      }
+      };
 
-      const updatedTasks = [...(userData?.tasks || []), newTask]
-      await FirebaseService.updateTasks(updatedTasks)
-      
+      const updatedTasks = [...(userData?.tasks || []), newTask];
+      await FirebaseService.updateTasks(updatedTasks);
+
+      // Immediately update widgets with the new tasks
+      console.log('🔄 Updating widgets after adding task...');
+      await TrackingSyncService.updateWidgets();
+
       // Reload data
-      await loadUserData()
-      
-      Alert.alert('Success', 'Sample task added')
+      await loadUserData();
+
+      Alert.alert('Success', 'Sample task added');
     } catch (error) {
-      console.error('Error adding sample task:', error)
-      Alert.alert('Error', 'Failed to add sample task')
+      console.error('Error adding sample task:', error);
+      Alert.alert('Error', 'Failed to add sample task');
     }
-  }
+  };
+
+  const handleSendTestWidgetData = async () => {
+    try {
+      console.log('📤 Sending test widget data...');
+      await TrackingSyncService.sendTestWidgetData();
+      Alert.alert('Success', 'Test data sent to widgets');
+    } catch (error) {
+      console.error('Error sending test data:', error);
+      Alert.alert('Error', 'Failed to send test data');
+    }
+  };
+
+  const handleForceSync = async () => {
+    try {
+      console.log('⚡ Force syncing...');
+      await TrackingSyncService.forceSync();
+      Alert.alert('Success', 'Force sync completed');
+    } catch (error) {
+      console.error('Error force syncing:', error);
+      Alert.alert('Error', 'Failed to force sync');
+    }
+  };
+
+  const handleCheckWidgetData = async () => {
+    try {
+      console.log('📊 Checking widget data in SharedPreferences...');
+      const { WidgetBridge } = require('react-native').NativeModules;
+      if (WidgetBridge && WidgetBridge.getWidgetData) {
+        WidgetBridge.getWidgetData()
+          .then((data: any) => {
+            console.log(
+              '📊 Widget data from SharedPreferences:',
+              JSON.stringify(data, null, 2),
+            );
+            Alert.alert('Widget Data', JSON.stringify(data, null, 2));
+          })
+          .catch((error: any) => {
+            console.error('Error getting widget data:', error);
+            Alert.alert('Error', 'Failed to get widget data');
+          });
+      }
+    } catch (error) {
+      console.error('Error checking widget data:', error);
+      Alert.alert('Error', 'Failed to check widget data');
+    }
+  };
 
   const handleUpdateTimer = async () => {
     try {
-      const newSeconds = (userData?.stats?.currentTimerSeconds || 0) + 60
-      await FirebaseService.updateTimer(newSeconds, userData?.stats?.isTimerRunning || false)
-      
+      const newSeconds = (userData?.stats?.currentTimerSeconds || 0) + 60;
+      await FirebaseService.updateTimer(
+        newSeconds,
+        userData?.stats?.isTimerRunning || false,
+      );
+
       // Reload data
-      await loadUserData()
-      
-      Alert.alert('Success', 'Timer updated')
+      await loadUserData();
+
+      Alert.alert('Success', 'Timer updated');
     } catch (error) {
-      console.error('Error updating timer:', error)
-      Alert.alert('Error', 'Failed to update timer')
+      console.error('Error updating timer:', error);
+      Alert.alert('Error', 'Failed to update timer');
     }
-  }
+  };
 
   if (isLoading) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Loading Firebase data...</Text>
       </View>
-    )
+    );
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Firebase Widget Example</Text>
-      
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Current Firebase Data</Text>
-        <Text>Focus Time: {WidgetUpdater.formatTime(userData?.stats?.todayFocusTime || 0)}</Text>
-        <Text>Scroll Time: {WidgetUpdater.formatTime(userData?.stats?.todayScrollTime || 0)}</Text>
-        <Text>Timer: {WidgetUpdater.formatTimer(userData?.stats?.currentTimerSeconds || 0)}</Text>
-        <Text>Timer Running: {userData?.stats?.isTimerRunning ? 'Yes' : 'No'}</Text>
+        <Text>
+          Focus Time:{' '}
+          {WidgetUpdater.formatTime(userData?.stats?.todayFocusTime || 0)}
+        </Text>
+        <Text>
+          Scroll Time:{' '}
+          {WidgetUpdater.formatTime(userData?.stats?.todayScrollTime || 0)}
+        </Text>
+        <Text>
+          Timer:{' '}
+          {WidgetUpdater.formatTimer(userData?.stats?.currentTimerSeconds || 0)}
+        </Text>
+        <Text>
+          Timer Running: {userData?.stats?.isTimerRunning ? 'Yes' : 'No'}
+        </Text>
         <Text>Total Tasks: {userData?.tasks?.length || 0}</Text>
       </View>
 
@@ -138,6 +222,14 @@ const WidgetExample: React.FC = () => {
         <View style={styles.buttonRow}>
           <Button title="Sync Native Data" onPress={handleSyncWithNative} />
           <Button title="Refresh Widgets" onPress={handleRefreshWidgets} />
+        </View>
+        <View style={styles.buttonRow}>
+          <Button title="Force Update Tasks" onPress={handleForceUpdateTasks} />
+          <Button title="Force Sync" onPress={handleForceSync} />
+        </View>
+        <View style={styles.buttonRow}>
+          <Button title="Send Test Data" onPress={handleSendTestWidgetData} />
+          <Button title="Check Widget Data" onPress={handleCheckWidgetData} />
         </View>
       </View>
 
@@ -167,20 +259,20 @@ const WidgetExample: React.FC = () => {
         <Button title="Reload Data" onPress={loadUserData} />
       </View>
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5'
+    backgroundColor: '#f5f5f5',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   section: {
     backgroundColor: 'white',
@@ -191,30 +283,30 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10
+    marginBottom: 10,
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 10
+    marginTop: 10,
   },
   taskRow: {
     paddingVertical: 4,
   },
   taskText: {
     fontSize: 16,
-    color: '#000'
+    color: '#000',
   },
   emptyText: {
     fontSize: 14,
     color: '#999',
-    fontStyle: 'italic'
-  }
-})
+    fontStyle: 'italic',
+  },
+});
 
-export default WidgetExample
+export default WidgetExample;

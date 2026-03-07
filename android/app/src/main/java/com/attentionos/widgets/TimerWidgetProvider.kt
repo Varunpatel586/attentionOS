@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.widget.RemoteViews
 import com.attentionos.MainActivity
 import com.attentionos.R
@@ -51,6 +52,15 @@ class TimerWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        updateAppWidget(context, appWidgetManager, appWidgetId)
+    }
+
     companion object {
         const val ACTION_UPDATE_WIDGET = "com.attentionos.UPDATE_TIMER_WIDGET"
         const val ACTION_TIMER_PAUSE = "com.attentionos.TIMER_PAUSE"
@@ -72,6 +82,8 @@ class TimerWidgetProvider : AppWidgetProvider() {
             // Format timer display
             val timerText = formatTimer(timerSeconds)
             views.setTextViewText(R.id.timerDisplay, timerText)
+            
+            android.util.Log.d("TimerWidget", "Timer updated: $timerSeconds seconds, running: $timerRunning, display: $timerText")
 
             // Set up button intents
             val pauseIntent = Intent(context, TimerWidgetProvider::class.java).apply {
@@ -118,7 +130,7 @@ class TimerWidgetProvider : AppWidgetProvider() {
         private fun formatTimer(seconds: Long): String {
             val minutes = seconds / 60
             val remainingSeconds = seconds % 60
-            return String.format("%02d : %02d", minutes, remainingSeconds)
+            return "${minutes}m ${remainingSeconds}s"
         }
 
         fun triggerUpdate(context: Context) {

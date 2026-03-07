@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,146 +10,61 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import BottomNavbar from '../components/BottomNavbar';
 import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import TimerService from '../services/TimerService';
 
 const POMODORO_FOCUS = 25 * 60; // 25 min
 const POMODORO_BREAK = 5 * 60; // 5 min
 
 const TimerScreen = () => {
-  const [activeTab, setActiveTab] = useState('Pomodoro');
-  const [distractions, setDistractions] = useState(0);
+  const [timerState, setTimerState] = useState({
+    activeTab: 'Pomodoro',
+    seconds: POMODORO_FOCUS,
+    isRunning: false,
+    isBreak: false,
+    distractions: 0,
+    activeTask: null,
+  });
 
-  const [seconds, setSeconds] = useState(POMODORO_FOCUS);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isBreak, setIsBreak] = useState(false);
+  const timerService = TimerService.getInstance();
 
-  const [activeTask, setActiveTask] = useState(null);
-  const intervalRef = useRef(null);
-  const lastUpdateRef = useRef(Date.now());
-
-  /* ---------------- ACTIVE TASK LISTENER ---------------- */
+  /* ---------------- TIMER SERVICE SUBSCRIPTION ---------------- */
 
   useEffect(() => {
-    const user = auth().currentUser;
-    if (!user) return;
+    // Initialize timer service
+    timerService.initialize();
 
-    const unsubscribe = firestore()
-      .collection('users')
-      .doc(user.uid)
-      .collection('bigThree')
-      .where('active', '==', true)
-      .onSnapshot(snapshot => {
-        if (!snapshot.empty) {
-          const doc = snapshot.docs[0];
-          setActiveTask({ id: doc.id, ...doc.data() });
-        } else {
-          setActiveTask(null);
-          setIsRunning(false); // stop timer if no task
-        }
-      });
+    // Subscribe to timer state changes
+    const unsubscribe = timerService.subscribe(state => {
+      setTimerState(state);
+    });
 
     return unsubscribe;
   }, []);
 
-  /* ---------------- UPDATE FOCUS TIME IN FIREBASE ---------------- */
-
-  const updateFocusTime = async () => {
-    const user = auth().currentUser;
-    if (!user) return;
-
-    try {
-      const userRef = firestore().collection('users').doc(user.uid);
-      const userDoc = await userRef.get();
-      const currentFocusTime = userDoc.data()?.todayFocusTime || 0;
-
-      // Increment by 1 second
-      await userRef.update({
-        todayFocusTime: currentFocusTime + 1,
-      });
-    } catch (error) {
-      console.error('Error updating focus time:', error);
-    }
-  };
-
-  /* ---------------- TIMER ENGINE ---------------- */
-
-  useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    if (!isRunning) return;
-
-    intervalRef.current = setInterval(() => {
-      setSeconds(prev => {
-        if (activeTab === 'Pomodoro') {
-          // Only increment focus time during focus sessions (not breaks)
-          if (!isBreak) {
-            updateFocusTime();
-          }
-
-          if (prev === 0) {
-            const nextIsBreak = !isBreak;
-            setIsBreak(nextIsBreak);
-            return nextIsBreak ? POMODORO_BREAK : POMODORO_FOCUS;
-          }
-          return prev - 1;
-        } else {
-          // Infinite mode - always counting focus time
-          updateFocusTime();
-          return prev + 1;
-        }
-      });
-    }, 1000);
-
-    return () => clearInterval(intervalRef.current);
-  }, [isRunning, activeTab, isBreak]);
-
   /* ---------------- CONTROLS ---------------- */
 
   const toggleTimer = () => {
-    if (activeTab === 'Pomodoro' && !activeTask) return;
-    setIsRunning(prev => !prev);
+    timerService.toggleTimer();
   };
 
   const resetTimer = () => {
-    setIsRunning(false);
-    setIsBreak(false);
-    setSeconds(activeTab === 'Pomodoro' ? POMODORO_FOCUS : 0);
+    timerService.resetTimer();
   };
 
   const switchTab = tab => {
-    setActiveTab(tab);
-    setIsRunning(false);
-    setIsBreak(false);
-    setSeconds(tab === 'Pomodoro' ? POMODORO_FOCUS : 0);
+    timerService.switchTab(tab);
   };
 
   /* ---------------- DISTRACTION TRACKING ---------------- */
 
-  const handleDistraction = async () => {
-    setDistractions(d => d + 1);
-
-    const user = auth().currentUser;
-    if (!user) return;
-
-    try {
-      const userRef = firestore().collection('users').doc(user.uid);
-      const userDoc = await userRef.get();
-      const currentSwitches = userDoc.data()?.todayContextSwitches || 0;
-
-      await userRef.update({
-        todayContextSwitches: currentSwitches + 1,
-      });
-    } catch (error) {
-      console.error('Error updating context switches:', error);
-    }
+  const handleDistraction = () => {
+    timerService.handleDistraction();
   };
 
   /* ---------------- TIME FORMAT ---------------- */
 
-  const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
-  const secs = String(seconds % 60).padStart(2, '0');
+  const minutes = String(Math.floor(timerState.seconds / 60)).padStart(2, '0');
+  const secs = String(timerState.seconds % 60).padStart(2, '0');
 
   /* ---------------- UI ---------------- */
 
@@ -167,12 +82,14 @@ const TimerScreen = () => {
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === tab && styles.activeTabText,
+                  timerState.activeTab === tab && styles.activeTabText,
                 ]}
               >
                 {tab}
               </Text>
-              {activeTab === tab && <View style={styles.activeTabIndicator} />}
+              {timerState.activeTab === tab && (
+                <View style={styles.activeTabIndicator} />
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -190,9 +107,9 @@ const TimerScreen = () => {
         </View>
 
         {/* Pomodoro Phase */}
-        {activeTab === 'Pomodoro' && (
+        {timerState.activeTab === 'Pomodoro' && (
           <Text style={styles.phaseText}>
-            {isBreak ? 'Break Time' : 'Focus Time'}
+            {timerState.isBreak ? 'Break Time' : 'Focus Time'}
           </Text>
         )}
 
@@ -200,7 +117,7 @@ const TimerScreen = () => {
         <View style={styles.controlsPill}>
           <TouchableOpacity onPress={toggleTimer}>
             <Ionicons
-              name={isRunning ? 'pause' : 'play'}
+              name={timerState.isRunning ? 'pause' : 'play'}
               size={28}
               color="#FFF"
             />
@@ -215,10 +132,14 @@ const TimerScreen = () => {
         <View style={styles.taskContainer}>
           <View style={styles.taskCard}>
             <Text style={styles.taskTitleText}>
-              {activeTask ? activeTask.title : 'No active task'}
+              {timerState.activeTask
+                ? timerState.activeTask.title
+                : 'No active task'}
             </Text>
             <Text style={styles.taskGroupText}>
-              {activeTask ? activeTask.category : 'Select a task'}
+              {timerState.activeTask
+                ? timerState.activeTask.category
+                : 'Select a task'}
             </Text>
           </View>
         </View>
@@ -231,7 +152,9 @@ const TimerScreen = () => {
           >
             <Text style={styles.distractionBtnText}>I got distracted!</Text>
           </TouchableOpacity>
-          <Text style={styles.distractionCountText}>{distractions} times</Text>
+          <Text style={styles.distractionCountText}>
+            {timerState.distractions} times
+          </Text>
         </View>
 
         <View style={{ height: 100 }} />
@@ -296,6 +219,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#E9E5DC',
     padding: 8,
     borderRadius: 40,
@@ -306,8 +230,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     borderRadius: 35,
   },
-  distractionBtnText: { color: '#FFF', fontWeight: '600' },
-  distractionCountText: { fontSize: 24, fontWeight: '800' },
+  distractionBtnText: { color: '#FFF', fontWeight: '600', fontSize: 18 },
+  distractionCountText: { fontSize: 24, fontWeight: '800', marginRight: 15 },
 });
 
 export default TimerScreen;

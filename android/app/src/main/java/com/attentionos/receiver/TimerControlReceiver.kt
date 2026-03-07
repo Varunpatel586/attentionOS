@@ -4,8 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.modules.core.DeviceEventManagerModule
 
 class TimerControlReceiver : BroadcastReceiver() {
 
@@ -28,32 +26,14 @@ class TimerControlReceiver : BroadcastReceiver() {
 
     private fun sendTimerEvent(context: Context, eventName: String) {
         try {
-            // Try to get React context and emit event
-            val reactContext = getReactContext(context)
-            if (reactContext != null) {
-                reactContext
-                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                    .emit(eventName, null)
-            } else {
-                Log.w(TAG, "React context not available for timer event")
+            // Send a broadcast that will be picked up by the React Native app
+            val intent = Intent("com.attentionos.TIMER_EVENT").apply {
+                putExtra("eventName", eventName)
             }
+            context.sendBroadcast(intent)
+            Log.d(TAG, "Timer event broadcast sent: $eventName")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send timer event", e)
-        }
-    }
-
-    private fun getReactContext(context: Context): ReactApplicationContext? {
-        // Try to get React context from application
-        return try {
-            val application = context.applicationContext
-            if (application is com.attentionos.MainApplication) {
-                // This would need to be implemented in MainApplication to expose React context
-                null // For now, return null - this would need proper implementation
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            null
         }
     }
 

@@ -1,13 +1,17 @@
 import FirebaseService from './FirebaseService';
 import AttentionOSBridge from '../utils/AttentionOSBridge';
 import { WidgetUpdater } from '../utils/widgetUpdater';
+import { DeviceEventEmitter } from 'react-native';
+import TimerService from './TimerService';
 
 class TrackingSyncService {
   private static instance: TrackingSyncService;
   private syncInterval: ReturnType<typeof setInterval> | null = null;
+  private timerInterval: ReturnType<typeof setInterval> | null = null;
   private isInitialized = false;
   private lastSyncScrollTime = 0;
   private lastSyncFocusTime = 0;
+  private timerEventSubscriptions: any[] = [];
 
   private constructor() {}
 
@@ -32,16 +36,109 @@ class TrackingSyncService {
         await FirebaseService.signInAnonymously();
       }
 
+      // Initialize TimerService
+      await TimerService.getInstance().initialize();
+
+      // Set up timer event listeners
+      this.setupTimerEventListeners();
+
       // Start periodic sync
       this.startPeriodicSync();
 
       // Initial sync
       await this.syncTrackingData();
 
+      // Set up real-time Firebase updates for widgets
+      this.setupRealtimeWidgetUpdates();
+
       this.isInitialized = true;
       console.log('TrackingSyncService initialized successfully');
     } catch (error) {
       console.error('Failed to initialize TrackingSyncService:', error);
+    }
+  }
+
+  /**
+   * Set up real-time Firebase updates for widgets
+   */
+  private setupRealtimeWidgetUpdates(): void {
+    try {
+      const unsubscribe = FirebaseService.subscribeToUserData(
+        async userData => {
+          if (userData) {
+            console.log('🔔 Real-time Firebase update detected!');
+            console.log('   Tasks in userData:', userData.tasks?.length || 0);
+            if (userData.tasks && userData.tasks.length > 0) {
+              console.log(
+                '   Tasks:',
+                userData.tasks.map(t => t.title).join(', '),
+              );
+            }
+            await this.updateWidgets();
+          }
+        },
+      );
+      console.log('✅ Real-time widget updates enabled');
+
+      // Store unsubscribe function in case we need to clean up later
+      this.realtimeUnsubscribe = unsubscribe;
+    } catch (error) {
+      console.error('Failed to setup real-time widget updates:', error);
+    }
+  }
+
+  private realtimeUnsubscribe: (() => void) | null = null;
+
+  /**
+   * Set up timer event listeners from widget
+   */
+  private setupTimerEventListeners(): void {
+    // Listen for timer control events from widget
+    const timerPauseSubscription = DeviceEventEmitter.addListener(
+      'timerPause',
+      () => {
+        this.handleTimerControl('pause');
+      },
+    );
+
+    const timerResumeSubscription = DeviceEventEmitter.addListener(
+      'timerResume',
+      () => {
+        this.handleTimerControl('resume');
+      },
+    );
+
+    const timerResetSubscription = DeviceEventEmitter.addListener(
+      'timerReset',
+      () => {
+        this.handleTimerControl('reset');
+      },
+    );
+
+    this.timerEventSubscriptions = [
+      timerPauseSubscription,
+      timerResumeSubscription,
+      timerResetSubscription,
+    ];
+
+    console.log('Timer event listeners set up');
+  }
+
+  /**
+   * Handle timer control events from widget
+   */
+  private async handleTimerControl(
+    action: 'pause' | 'resume' | 'reset',
+  ): Promise<void> {
+    try {
+      console.log('📱 Timer control event received:', action);
+
+      // Use TimerService to handle the control
+      await TimerService.getInstance().handleWidgetControl(action);
+
+      console.log('✅ Timer control handled:', action);
+    } catch (error) {
+      console.error('❌ Error handling timer control:', error);
     }
   }
 
@@ -108,11 +205,8 @@ class TrackingSyncService {
           scrollTime: scrollSeconds,
         });
 
-        // Update widgets immediately after sync
-        await WidgetUpdater.updateFocusScroll(
-          userData.stats.todayFocusTime,
-          scrollSeconds,
-        );
+        // Update all widgets (including tasks) immediately after sync
+        await this.updateWidgets();
       }
     } catch (error) {
       console.error('❌ Error syncing tracking data:', error);
@@ -136,16 +230,26 @@ class TrackingSyncService {
       // Get Firebase data for focus time (stored value), tasks and timer
       const userData = await FirebaseService.getUserData();
       const todayTasks = await FirebaseService.getTodayTasks();
+      
+      // Get timer state from TimerService
+      const timerState = TimerService.getInstance().getState();
 
       console.log('🔥 Firebase data:', {
         hasUserData: !!userData,
         storedFocusTime: userData?.stats?.todayFocusTime,
-        taskCount: todayTasks.length,
-        timerSeconds: userData?.stats?.currentTimerSeconds,
-        timerRunning: userData?.stats?.isTimerRunning,
+        todayTasksLength: todayTasks.length,
+        userDataTasksLength: userData?.tasks?.length,
+        timerState: timerState,
+        todayTasksArray: todayTasks,
+        userDataTasks: userData?.tasks,
       });
 
-      const widgetTasks = todayTasks.slice(0, 3).map(task => ({
+      // Use todayTasks (from todos sub-collection) as primary source
+      const tasksToUse = todayTasks;
+
+      console.log('📝 Tasks to use for widget:', tasksToUse);
+
+      const widgetTasks = tasksToUse.slice(0, 3).map(task => ({
         id: task.id,
         title: task.title,
         done: task.done,
@@ -155,8 +259,8 @@ class TrackingSyncService {
         focus: userData?.stats?.todayFocusTime || 0,
         scroll: scrollSeconds,
         tasks: widgetTasks,
-        timer: userData?.stats?.currentTimerSeconds || 0,
-        running: userData?.stats?.isTimerRunning || false,
+        timer: timerState.seconds,
+        running: timerState.isRunning,
       };
 
       console.log('📱 Final widget data:', result);
@@ -177,6 +281,7 @@ class TrackingSyncService {
 
       if (widgetData) {
         console.log('📱 Widget data prepared:', widgetData);
+        console.log('📝 Tasks to send to widget:', widgetData.tasks);
         await WidgetUpdater.updateAllWidgets(widgetData);
         console.log('✅ Widgets updated successfully');
       } else {
@@ -184,6 +289,37 @@ class TrackingSyncService {
       }
     } catch (error) {
       console.error('❌ Error updating widgets:', error);
+    }
+  }
+
+  /**
+   * Update tasks and refresh widgets
+   */
+  async updateTasks(tasks: any[]): Promise<void> {
+    try {
+      console.log('📝 Updating tasks:', tasks.length);
+
+      await FirebaseService.updateTasks(tasks);
+
+      // Update widgets with new tasks
+      await this.updateWidgets();
+
+      console.log('✅ Tasks updated and widgets refreshed');
+    } catch (error) {
+      console.error('❌ Error updating tasks:', error);
+    }
+  }
+
+  /**
+   * Force immediate task update and widget refresh
+   */
+  async forceUpdateTasks(): Promise<void> {
+    console.log('🔄 Force updating tasks...');
+    try {
+      await this.updateWidgets();
+      console.log('✅ Tasks force updated');
+    } catch (error) {
+      console.error('❌ Error force updating tasks:', error);
     }
   }
 
@@ -202,6 +338,30 @@ class TrackingSyncService {
   }
 
   /**
+   * Send test widget data (for debugging)
+   */
+  async sendTestWidgetData(): Promise<void> {
+    try {
+      console.log('🧪 Sending test widget data...');
+      const testData = {
+        focus: 2 * 3600 + 28 * 60,
+        scroll: 1 * 3600 + 40 * 60,
+        tasks: [
+          { id: '1', title: 'Complete project', done: false },
+          { id: '2', title: 'Review code', done: false },
+          { id: '3', title: 'Update documentation', done: false },
+        ],
+        timer: 16 * 60 + 44,
+        running: false,
+      };
+      await WidgetUpdater.updateAllWidgets(testData);
+      console.log('✅ Test data sent successfully');
+    } catch (error) {
+      console.error('❌ Failed to send test data:', error);
+    }
+  }
+
+  /**
    * Stop the sync service
    */
   stop(): void {
@@ -209,6 +369,18 @@ class TrackingSyncService {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
     }
+
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+
+    // Clean up timer event subscriptions
+    this.timerEventSubscriptions.forEach(subscription => {
+      subscription.remove();
+    });
+    this.timerEventSubscriptions = [];
+
     this.isInitialized = false;
     console.log('TrackingSyncService stopped');
   }

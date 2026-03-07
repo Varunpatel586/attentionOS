@@ -7,8 +7,14 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.WritableNativeArray
 import com.attentionos.service.WidgetUpdateService
+import com.attentionos.utils.ReactNativeEventEmitter
 
 class WidgetBridgeModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+
+    init {
+        // Initialize the event emitter with the React context
+        ReactNativeEventEmitter.initialize(reactContext)
+    }
 
     override fun getName(): String {
         return "WidgetBridge"
@@ -31,6 +37,7 @@ class WidgetBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
     @ReactMethod
     fun updateTasks(tasks: ReadableArray, promise: Promise) {
         try {
+            android.util.Log.d("WidgetBridge", "📝 updateTasks called with ${tasks.size()} tasks")
             val tasksList = mutableListOf<Map<String, Any>>()
             
             for (i in 0 until tasks.size()) {
@@ -49,12 +56,15 @@ class WidgetBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
                     }
                     
                     tasksList.add(taskMap)
+                    android.util.Log.d("WidgetBridge", "Task $i: ${taskMap["title"]}")
                 }
             }
             
+            android.util.Log.d("WidgetBridge", "Sending ${tasksList.size} tasks to WidgetUpdateService")
             WidgetUpdateService.updateTasks(reactApplicationContext, tasksList)
             promise.resolve("Tasks updated successfully")
         } catch (e: Exception) {
+            android.util.Log.e("WidgetBridge", "Error updating tasks", e)
             promise.reject("WIDGET_UPDATE_ERROR", "Failed to update tasks: ${e.message}")
         }
     }
@@ -62,6 +72,7 @@ class WidgetBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
     @ReactMethod
     fun updateTimer(seconds: Double, running: Boolean, promise: Promise) {
         try {
+            android.util.Log.d("WidgetBridge", "⏰ updateTimer called: $seconds seconds, running: $running")
             WidgetUpdateService.updateTimer(
                 reactApplicationContext,
                 seconds.toLong(),
@@ -69,6 +80,7 @@ class WidgetBridgeModule(reactContext: ReactApplicationContext) : ReactContextBa
             )
             promise.resolve("Timer updated successfully")
         } catch (e: Exception) {
+            android.util.Log.e("WidgetBridge", "Error updating timer", e)
             promise.reject("WIDGET_UPDATE_ERROR", "Failed to update timer: ${e.message}")
         }
     }
