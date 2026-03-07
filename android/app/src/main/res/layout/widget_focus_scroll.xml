@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="horizontal"
+    android:padding="16dp">
+
+    <!-- Focus Time Section -->
+    <LinearLayout
+        android:id="@+id/focusSection"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/widget_selected_background"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/focusTimeLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Focusing"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/focusTimeValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="2h 28m"
+            android:textSize="16sp"
+            android:textColor="#000000"
+            android:fontFamily="sans-serif-bold"
+            android:layout_marginTop="4dp" />
+
+    </LinearLayout>
+
+    <!-- Scroll Time Section -->
+    <LinearLayout
+        android:id="@+id/scrollSection"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/scrollTimeLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Scrolling"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/scrollTimeValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1h 40m"
+            android:textSize="16sp"
+            android:textColor="#000000"
+            android:fontFamily="sans-serif-bold"
+            android:layout_marginTop="4dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

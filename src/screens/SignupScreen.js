@@ -21,14 +21,21 @@ const SignupScreen = ({ onSwitchToLogin }) => {
 
       const userRef = firestore().collection('users').doc(cred.user.uid);
 
-      // Create user document
+      // Create user document with proper stats structure
       await userRef.set({
         name,
         email,
-        todayFocusTime: 0,
-        todayScrollTime: 0,
-        trackingEnabled: false,
-        createdAt: firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date(),
+        stats: {
+          todayFocusTime: 0,
+          todayScrollTime: 0,
+          weeklyFocusTime: 0,
+          weeklyScrollTime: 0,
+          currentTimerSeconds: 0,
+          isTimerRunning: false,
+          lastUpdated: new Date(),
+        },
+        tasks: [],
       });
 
       // Create Big Three tasks
@@ -61,7 +68,7 @@ const SignupScreen = ({ onSwitchToLogin }) => {
         taskGroup: 'work',
         dueDate: null,
         description: 'Reply to all pending emails in inbox',
-        createdAt: firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date(),
       });
 
       await userRef.collection('todos').doc('2').set({
@@ -71,7 +78,7 @@ const SignupScreen = ({ onSwitchToLogin }) => {
         taskGroup: 'study',
         dueDate: null,
         description: 'Read 20 pages of the assigned book',
-        createdAt: firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date(),
       });
 
       await userRef.collection('todos').doc('3').set({
@@ -81,7 +88,7 @@ const SignupScreen = ({ onSwitchToLogin }) => {
         taskGroup: 'personal',
         dueDate: null,
         description: "Plan tomorrow's tasks and schedule",
-        createdAt: firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date(),
       });
     } catch (e) {
       setError(e.message);

@@ -1,4 +1,10 @@
 <resources>
     <string name="app_name">AttentionOS</string>
     <string name="accessibility_service_description">AttentionOS uses this service to detect scrolling behavior in apps like Instagram and YouTube. This helps track distracted scrolling time. We do NOT read your messages, posts, or any personal content. We only detect scroll events with your consent.</string>
+    
+    <!-- Widget descriptions -->
+    <string name="focus_scroll_widget_description">Focus vs Scroll time tracking widget</string>
+    <string name="focus_scroll_small_widget_description">Compact Focus vs Scroll time widget</string>
+    <string name="tasks_widget_description">Today\'s tasks widget</string>
+    <string name="timer_widget_description">Focus timer widget with controls</string>
 </resources>
