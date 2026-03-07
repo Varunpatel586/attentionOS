@@ -27,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import androidx.core.content.ContextCompat
 
 /**
  * Foreground service that orchestrates distracted scrolling tracking.
@@ -588,6 +589,7 @@ class TrackingForegroundService : Service() {
             .setContentTitle("AttentionOS Tracking Active")
             .setContentText("Monitoring app usage for distracted scrolling")
             .setSmallIcon(R.mipmap.ic_launcher) // Use app icon
+            .setColor(ContextCompat.getColor(this, R.color.red))
             .setContentIntent(pendingIntent)
             .addAction(
                 NotificationCompat.Action(

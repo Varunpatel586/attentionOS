@@ -31,6 +31,7 @@ export interface UserStats {
   lastUpdated: Date;
   timerState?: any; // Timer state object
   todayContextSwitches?: number; // Number of context switches today
+  weeklyContextSwitches?: number; // ADD THIS
 }
 
 export interface UserData {
@@ -166,6 +167,8 @@ class FirebaseService {
             todayScrollTime: 0,
             weeklyFocusTime: 0,
             weeklyScrollTime: 0,
+            todayContextSwitches: 0,
+            weeklyContextSwitches: 0,
             currentTimerSeconds: 0,
             isTimerRunning: false,
             lastUpdated: new Date(),

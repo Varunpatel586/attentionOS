@@ -281,12 +281,21 @@ class TimerService {
 
     try {
       const userData = await FirebaseService.getUserData();
-      const currentSwitches = userData?.stats?.todayContextSwitches || 0;
+      const currentTodaySwitches = userData?.stats?.todayContextSwitches || 0;
+      const currentWeeklySwitches = userData?.stats?.weeklyContextSwitches || 0;
 
-      await FirebaseService.updateField(
-        'stats.todayContextSwitches',
-        currentSwitches + 1,
-      );
+      // Update both daily and weekly context switches simultaneously
+      await Promise.all([
+        FirebaseService.updateField(
+          'stats.todayContextSwitches',
+          currentTodaySwitches + 1,
+        ),
+        FirebaseService.updateField(
+          'stats.weeklyContextSwitches',
+          currentWeeklySwitches + 1,
+        ),
+      ]);
+
       await this.saveTimerState();
       this.notifyListeners();
 

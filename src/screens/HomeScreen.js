@@ -60,6 +60,53 @@ const HomeScreen = () => {
     ]).start();
   }, [activeMode, isMenuOpen]);
 
+  // Reset Focus Time on New Day
+  const checkAndResetDailyStats = async () => {
+    if (!user) return;
+    try {
+      const userRef = firestore().collection('users').doc(user.uid);
+      const doc = await userRef.get();
+      const data = doc.data();
+
+      if (data && data.lastUpdated) {
+        const lastUpdatedDate = data.lastUpdated.toDate();
+        const today = new Date();
+        const daysSinceLastUpdate =
+          (today - lastUpdatedDate) / (1000 * 60 * 60 * 24);
+
+        // Strip the time to compare just the calendar dates
+        if (lastUpdatedDate.setHours(0, 0, 0, 0) < today.setHours(0, 0, 0, 0)) {
+          // 1. Prepare Daily Reset Payload
+          const updates = {
+            todayFocusTime: 0,
+            todayScrollTime: 0,
+            todayContextSwitches: 0,
+            lastUpdated: firestore.FieldValue.serverTimestamp(),
+          };
+
+          // 2. Check for Weekly Reset (If it's Monday OR it's been over 7 days since last update)
+          const isMonday = new Date().getDay() === 1; // 0 is Sunday, 1 is Monday
+
+          if (isMonday || daysSinceLastUpdate >= 7) {
+            updates.weeklyFocusTime = 0;
+            updates.weeklyScrollTime = 0;
+            updates.weeklyContextSwitches = 0;
+          }
+
+          // Push all updates to Firebase at once
+          await userRef.update(updates);
+        }
+      } else if (data && !data.lastUpdated) {
+        // Fallback if lastUpdated doesn't exist yet
+        await userRef.update({
+          lastUpdated: firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error('Error checking resets:', error);
+    }
+  };
+
   // Load real scroll time from AttentionOSBridge
   const loadScrollTime = async () => {
     try {
@@ -74,6 +121,9 @@ const HomeScreen = () => {
 
   useEffect(() => {
     if (!user) return;
+
+    // Run the reset check when the screen mounts
+    checkAndResetDailyStats();
 
     const unsubscribeUser = firestore()
       .collection('users')
@@ -131,8 +181,6 @@ const HomeScreen = () => {
       try {
         const isRunning = await AttentionOSBridge.isTrackingRunning();
         if (!isRunning) {
-          // Call into native startTracking. Native side will either start the service
-          // or show permission dialogs if required permissions are missing.
           AttentionOSBridge.startTracking();
         }
       } catch (error) {
@@ -440,7 +488,7 @@ const styles = StyleSheet.create({
   },
   closeIconContainer: {
     width: '100%',
-    alignItems: 'center',
+    alignItems: 'flex-end', // Fix: Make it align properly per your other close icon
     marginBottom: width * 0.08,
   },
 
@@ -465,15 +513,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     textAlign: 'center',
-  },
-
-  // Close Icon Container
-  closeIconContainer: {
-    width: '100%',
-    alignItems: 'flex-end',
-    paddingHorizontal: 25,
-    marginTop: 20,
-    marginBottom: 40,
   },
 
   // Menu Items Alignment Styles
