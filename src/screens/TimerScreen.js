@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import BackgroundTimer from 'react-native-background-timer';
-import BackgroundService from 'react-native-background-actions';
 import {
   StyleSheet,
   View,
@@ -55,75 +54,64 @@ const TimerScreen = () => {
 
   /* ---------------- UPDATE FOCUS TIME IN FIREBASE ---------------- */
 
-  const updateFocusTime = async () => {
+  // Save the total focus time to Firebase at the end
+  const saveFocusTime = async (focusSeconds) => {
     const user = auth().currentUser;
     if (!user) return;
-
     try {
       const userRef = firestore().collection('users').doc(user.uid);
       const userDoc = await userRef.get();
       const currentFocusTime = userDoc.data()?.todayFocusTime || 0;
-
-      // Increment by 1 second
       await userRef.update({
-        todayFocusTime: currentFocusTime + 1,
+        todayFocusTime: currentFocusTime + focusSeconds,
       });
     } catch (error) {
-      console.error('Error updating focus time:', error);
+      console.error('Error saving focus time:', error);
     }
   };
 
   /* ---------------- TIMER ENGINE ---------------- */
 
+  // Track focus seconds locally
+  const focusSecondsRef = useRef(0);
+
   useEffect(() => {
-    const sleep = time => new Promise(resolve => setTimeout(resolve, time));
-
-    const backgroundTask = async (taskDataArguments) => {
-      while (isRunning) {
-        setSeconds(prev => {
-          if (activeTab === 'Pomodoro') {
-            if (!isBreak) {
-              updateFocusTime();
-            }
-            if (prev === 0) {
-              const nextIsBreak = !isBreak;
-              setIsBreak(nextIsBreak);
-              return nextIsBreak ? POMODORO_BREAK : POMODORO_FOCUS;
-            }
-            return prev - 1;
-          } else {
-            updateFocusTime();
-            return prev + 1;
-          }
-        });
-        await sleep(1000);
-      }
-    };
-
-    const options = {
-      taskName: 'AttentionOSTimer',
-      taskTitle: 'Timer Running',
-      taskDesc: 'Your focus timer is running.',
-      taskIcon: {
-        name: 'ic_launcher',
-        type: 'mipmap',
-      },
-      color: '#ff00ff',
-      linkingURI: '',
-      parameters: {},
-    };
-
-    if (isRunning) {
-      BackgroundService.start(backgroundTask, options);
-    } else {
-      BackgroundService.stop();
+    if (intervalRef.current) {
+      BackgroundTimer.clearInterval(intervalRef.current);
     }
 
-    return () => {
-      BackgroundService.stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!isRunning) return;
+
+    intervalRef.current = BackgroundTimer.setInterval(() => {
+      setSeconds(prev => {
+        if (activeTab === 'Pomodoro') {
+          if (!isBreak) {
+            focusSecondsRef.current += 1;
+          }
+          if (prev === 0) {
+            const nextIsBreak = !isBreak;
+            setIsBreak(nextIsBreak);
+            return nextIsBreak ? POMODORO_BREAK : POMODORO_FOCUS;
+          }
+          return prev - 1;
+        } else {
+          focusSecondsRef.current += 1;
+          return prev + 1;
+        }
+      });
+    }, 1000);
+
+    return () => BackgroundTimer.clearInterval(intervalRef.current);
   }, [isRunning, activeTab, isBreak]);
+
+  // Save focus time to Firebase when timer stops
+  useEffect(() => {
+    if (!isRunning && focusSecondsRef.current > 0) {
+      saveFocusTime(focusSecondsRef.current);
+      focusSecondsRef.current = 0;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning]);
 
   /* ---------------- CONTROLS ---------------- */
 
@@ -136,6 +124,11 @@ const TimerScreen = () => {
     setIsRunning(false);
     setIsBreak(false);
     setSeconds(activeTab === 'Pomodoro' ? POMODORO_FOCUS : 0);
+    // Save focus time if timer is reset
+    if (focusSecondsRef.current > 0) {
+      saveFocusTime(focusSecondsRef.current);
+      focusSecondsRef.current = 0;
+    }
   };
 
   const switchTab = tab => {
