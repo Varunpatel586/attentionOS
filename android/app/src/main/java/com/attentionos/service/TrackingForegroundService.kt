@@ -67,6 +67,7 @@ class TrackingForegroundService : Service() {
     private var lastScrollTimestamp: Long = 0
     private var lastDetectionTimestamp: Long = 0L  // For cooldown mechanism
     private var isScreenOn: Boolean = true  // Track screen state
+    private var scrollCountBeforeSession: Int = 0  // Track scrolls before session starts
 
     // Broadcast receiver for accessibility events
     private val accessibilityEventReceiver = object : BroadcastReceiver() {
@@ -200,15 +201,11 @@ class TrackingForegroundService : Service() {
         val now = System.currentTimeMillis()
         val foregroundApp = usageStatsHelper.getCurrentForegroundApp()
 
-        // START SESSION IF USER OPENS A DISTRACTION APP
-        if (currentSessionPackage == null && foregroundApp != null) {
-            if (SessionClassifier.isDistractionApp(foregroundApp)) {
-
-                Log.i(TAG, "📱 SESSION START (foreground detection): $foregroundApp")
-
-                startNewSession(foregroundApp)
-            }
-        }
+        // ═══════════════════════════════════════════════════════════════
+        // SESSION START LOGIC: Only start sessions when user actually scrolls
+        // ═══════════════════════════════════════════════════════════════
+        // DON'T start session just because app opened - wait for scrolling!
+        // Sessions are now started ONLY in handleScrollEvent() after 10 scrolls
 
         // ═══════════════════════════════════════════════════════════════
         // CASE 1: UsageStats returned a real app
@@ -250,6 +247,12 @@ class TrackingForegroundService : Service() {
                 } else {
                     Log.v(TAG, "⏸️ Idle time exceeded accumulation limit (${idleTime}ms > ${ATTENTION_ACCUMULATION_IDLE_LIMIT}ms) - checking for session end")
                     
+                    // NEW: Hide overlay if user stops scrolling for 60 seconds
+                    if (overlayShownTime > 0 && idleTime >= 60_000L) {
+                        Log.i(TAG, "🫧 Hiding overlay due to inactivity (${idleTime}ms > 30s)")
+                        hideOverlay()
+                    }
+                    
                     // End session only if idle threshold exceeded
                     if (idleTime >= IDLE_END_THRESHOLD) {
                         Log.i(TAG, "⏱️ Session ending due to ${idleTime}ms of inactivity (threshold: ${IDLE_END_THRESHOLD}ms)")
@@ -288,6 +291,12 @@ class TrackingForegroundService : Service() {
                 Log.v(TAG, "⏸️ Skipping attention accumulation during active scrolling")
             }
             
+            // NEW: Hide overlay if user stops scrolling for 60 seconds (null foreground case)
+            if (overlayShownTime > 0 && idleTime >= 60_000L) {
+                Log.i(TAG, "🫧 Hiding overlay due to inactivity (null foreground, ${idleTime}ms > 30s)")
+                hideOverlay()
+            }
+            
             // Only end session if user has been idle for 5+ minutes
             if (idleTime >= IDLE_END_THRESHOLD) {
                 Log.i(TAG, "⏱️ Session ending due to ${idleTime}ms of inactivity during null foreground (threshold: ${IDLE_END_THRESHOLD}ms)")
@@ -316,8 +325,19 @@ class TrackingForegroundService : Service() {
     Log.i(TAG, "   scrollCount: 0, scrollTime: 0ms, attentionTime: 0ms")
     Log.i(TAG, "========================================")
     
-    // Reset overlay state for new session
-    overlayShownTime = 0L
+    // NEW: Show overlay immediately since scrolling is already confirmed
+    if (OverlayPermissionHelper.hasPermission(this)) {
+        try {
+            floatingOverlay.showOverlay(this)
+            overlayShownTime = System.currentTimeMillis()
+            startOverlayTimer()
+            Log.i(TAG, "🫧 Floating overlay shown immediately for $packageName (scrolling confirmed)")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to show floating overlay", e)
+        }
+    } else {
+        Log.w(TAG, "⚠️ Overlay permission not granted - cannot show floating timer")
+    }
 }
 
 
@@ -435,20 +455,32 @@ class TrackingForegroundService : Service() {
         attentionTime = 0L
         lastScrollTimestamp = 0
         overlayShownTime = 0L
+        scrollCountBeforeSession = 0 // Reset pre-session scroll counter
     }
 
     /**
      * Handle scroll event from AccessibilityService.
-     * Accumulates scroll time using delta between consecutive scroll events.
+     * Starts session ONLY after sufficient scrolling behavior (10 scrolls).
      */
     private fun handleScrollEvent(packageName: String, timestamp: Long) {
 
-        // Bootstrap session from scroll if not already started
-        // Scroll events often arrive before UsageStats stabilizes
+        // NEW LOGIC: Only start session after 10 scrolls to confirm actual scrolling behavior
         if (currentSessionPackage == null) {
             if (SessionClassifier.isDistractionApp(packageName)) {
-                Log.i(TAG, "🎬 [SESSION START] Bootstrapping from scroll event: $packageName")
-                startNewSession(packageName)
+                // Increment global scroll counter to track scrolling before session starts
+                scrollCountBeforeSession++
+                
+                Log.i(TAG, "🎬 Scroll #$scrollCountBeforeSession detected for $packageName (session not started yet)")
+                
+                // Start session only after 10 scrolls to confirm actual scrolling behavior
+                if (scrollCountBeforeSession >= 10) {
+                    Log.i(TAG, "🚀 SESSION START: Sufficient scrolling detected ($scrollCountBeforeSession scrolls)")
+                    startNewSession(packageName)
+                    scrollCountBeforeSession = 0 // Reset for next session
+                } else {
+                    Log.v(TAG, "⏳ Waiting for more scrolls... ($scrollCountBeforeSession/4)")
+                    return
+                }
             } else {
                 Log.v(TAG, "⏭️  Scroll ignored: $packageName is not a distraction app")
                 return
@@ -462,6 +494,20 @@ class TrackingForegroundService : Service() {
     }
 
         scrollCount++
+
+        // NEW: Show overlay again if user resumes scrolling after it was hidden
+        if (overlayShownTime == 0L && currentSessionPackage != null) {
+            Log.i(TAG, "🫧 Reshowing overlay: User resumed scrolling")
+            if (OverlayPermissionHelper.hasPermission(this)) {
+                try {
+                    floatingOverlay.showOverlay(this)
+                    overlayShownTime = System.currentTimeMillis()
+                    startOverlayTimer()
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Failed to reshow floating overlay", e)
+                }
+            }
+        }
 
         // Accumulate scroll time using deltas between consecutive scrolls
         if (lastScrollTimestamp > 0) {

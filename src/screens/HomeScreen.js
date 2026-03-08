@@ -126,8 +126,19 @@ const HomeScreen = () => {
         if (data) {
           setUserName(data.name || 'Varun');
 
-          setFocusTime(data.stats?.todayFocusTime ?? 0);
-          setScrollTime(data.stats?.todayScrollTime ?? 0);
+          const newFocusTime = data.stats?.todayFocusTime ?? 0;
+          const newScrollTime = data.stats?.todayScrollTime ?? 0;
+
+          console.log('🏠 HomeScreen Firebase Update:', {
+            focusTime: newFocusTime,
+            scrollTime: newScrollTime,
+            lastUpdated: data.stats?.lastUpdated
+              ?.toDate()
+              ?.toLocaleTimeString(),
+          });
+
+          setFocusTime(newFocusTime);
+          setScrollTime(newScrollTime);
 
           setActiveMode(data.activeMode || 'focus');
         }

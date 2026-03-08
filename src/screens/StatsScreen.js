@@ -10,11 +10,12 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import BottomNavbar from '../components/BottomNavbar';
 import Icon from 'react-native-vector-icons/Ionicons';
-import AttentionOSBridge from '../utils/AttentionOSBridge';
 
 const StatsScreen = () => {
   const user = auth().currentUser;
@@ -158,19 +159,15 @@ const StatsScreen = () => {
   };
 
   const performReset = async () => {
-    // Implement reset logic - could reset daily stats
+    // Reset daily stats in Firebase (Firebase-first approach)
     if (!user) return;
 
     try {
-      // Reset local native scrolling time first - no longer needed since we sync directly to Firebase
-      // await AttentionOSBridge.resetTodayDistractedTime();
-      // console.log('✅ Reset local native scrolling time');
-
-      // Use dot notation to reset nested stats in Firebase
+      // Reset all stats in Firebase - no need to reset native bridge
       await firestore().collection('users').doc(user.uid).update({
         'stats.todayFocusTime': 0,
         'stats.todayContextSwitches': 0,
-        'stats.todayScrollTime': 0, // Reset scroll time in Firebase too
+        'stats.todayScrollTime': 0, // Firebase is now source of truth
       });
 
       console.log('✅ Reset Firebase stats');
