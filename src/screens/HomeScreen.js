@@ -60,7 +60,7 @@ const HomeScreen = () => {
     ]).start();
   }, [activeMode, isMenuOpen]);
 
-  // Reset Focus Time on New Day
+  // --- Reset Focus Time on New Day ---
   const checkAndResetDailyStats = async () => {
     if (!user) return;
     try {
@@ -68,38 +68,39 @@ const HomeScreen = () => {
       const doc = await userRef.get();
       const data = doc.data();
 
-      if (data && data.lastUpdated) {
-        const lastUpdatedDate = data.lastUpdated.toDate();
+      // Look at stats.lastUpdated
+      if (data && data.stats && data.stats.lastUpdated) {
+        const lastUpdatedDate = data.stats.lastUpdated.toDate();
         const today = new Date();
         const daysSinceLastUpdate =
           (today - lastUpdatedDate) / (1000 * 60 * 60 * 24);
 
         // Strip the time to compare just the calendar dates
         if (lastUpdatedDate.setHours(0, 0, 0, 0) < today.setHours(0, 0, 0, 0)) {
-          // 1. Prepare Daily Reset Payload
+          // 1. Prepare Daily Reset Payload using Dot Notation
           const updates = {
-            todayFocusTime: 0,
-            todayScrollTime: 0,
-            todayContextSwitches: 0,
-            lastUpdated: firestore.FieldValue.serverTimestamp(),
+            'stats.todayFocusTime': 0,
+            'stats.todayScrollTime': 0,
+            'stats.todayContextSwitches': 0,
+            'stats.lastUpdated': firestore.FieldValue.serverTimestamp(),
           };
 
           // 2. Check for Weekly Reset (If it's Monday OR it's been over 7 days since last update)
           const isMonday = new Date().getDay() === 1; // 0 is Sunday, 1 is Monday
 
           if (isMonday || daysSinceLastUpdate >= 7) {
-            updates.weeklyFocusTime = 0;
-            updates.weeklyScrollTime = 0;
-            updates.weeklyContextSwitches = 0;
+            updates['stats.weeklyFocusTime'] = 0;
+            updates['stats.weeklyScrollTime'] = 0;
+            updates['stats.weeklyContextSwitches'] = 0;
           }
 
           // Push all updates to Firebase at once
           await userRef.update(updates);
         }
-      } else if (data && !data.lastUpdated) {
-        // Fallback if lastUpdated doesn't exist yet
+      } else if (data && data.stats && !data.stats.lastUpdated) {
+        // Fallback if lastUpdated doesn't exist inside stats yet
         await userRef.update({
-          lastUpdated: firestore.FieldValue.serverTimestamp(),
+          'stats.lastUpdated': firestore.FieldValue.serverTimestamp(),
         });
       }
     } catch (error) {
@@ -107,15 +108,36 @@ const HomeScreen = () => {
     }
   };
 
-  // Load real scroll time from AttentionOSBridge
-  const loadScrollTime = async () => {
+  // --- Sync Local Native Tracker to Firebase ---
+  const syncScrollTimeToFirebase = async () => {
+    if (!user) return;
     try {
-      const todayDistractedTime =
+      // 1. Get the absolute truth from the native Android bridge
+      const todayDistractedTimeMs =
         await AttentionOSBridge.getTodayDistractedTime();
-      // Convert milliseconds to seconds
-      setScrollTime(Math.floor(todayDistractedTime / 1000));
+      const localScrollSeconds = Math.floor(todayDistractedTimeMs / 1000);
+
+      // 2. Read what Firebase currently thinks the scroll time is
+      const userRef = firestore().collection('users').doc(user.uid);
+      const userDoc = await userRef.get();
+      const firebaseTodayScroll = userDoc.data()?.stats?.todayScrollTime || 0;
+
+      // 3. If local tracker has more time than Firebase, push the update
+      if (localScrollSeconds > firebaseTodayScroll) {
+        const difference = localScrollSeconds - firebaseTodayScroll;
+
+        await userRef.update({
+          'stats.todayScrollTime': localScrollSeconds,
+          'stats.weeklyScrollTime': firestore.FieldValue.increment(difference),
+          'stats.lastUpdated': firestore.FieldValue.serverTimestamp(),
+        });
+
+        console.log(
+          `✅ Synced ${difference} new distracted seconds to Firebase!`,
+        );
+      }
     } catch (error) {
-      console.error('Error loading scroll time:', error);
+      console.error('Error syncing scroll time to Firebase:', error);
     }
   };
 
@@ -131,10 +153,11 @@ const HomeScreen = () => {
       .onSnapshot(doc => {
         const data = doc.data();
         if (data) {
-          setUserName(data.name || 'Harsheel');
-          const currentFocusTime =
-            data.stats?.todayFocusTime ?? data.todayFocusTime ?? 0;
-          setFocusTime(currentFocusTime);
+          setUserName(data.name || 'Varun');
+
+          setFocusTime(data.stats?.todayFocusTime ?? 0);
+          setScrollTime(data.stats?.todayScrollTime ?? 0);
+
           setActiveMode(data.activeMode || 'focus');
         }
       });
@@ -157,26 +180,25 @@ const HomeScreen = () => {
         setTodos(list);
       });
 
-    // Load scroll time initially
-    loadScrollTime();
+    // Run sync immediately on mount
+    syncScrollTimeToFirebase();
 
-    // Auto-refresh scroll time every 60 seconds
-    const scrollTimeInterval = setInterval(() => {
-      loadScrollTime();
-    }, 60000);
+    // Sync from native bridge to Firebase every 30 seconds
+    const syncInterval = setInterval(() => {
+      syncScrollTimeToFirebase();
+    }, 30000);
 
     return () => {
       unsubscribeUser();
       unsubscribeBigThree();
       unsubscribeTodos();
-      clearInterval(scrollTimeInterval);
+      clearInterval(syncInterval);
     };
   }, [user]);
 
   const switchActiveMode = async mode => {
     if (!user) return;
 
-    // Start tracking when switching to focus mode
     if (mode === 'focus') {
       try {
         const isRunning = await AttentionOSBridge.isTrackingRunning();
@@ -188,7 +210,6 @@ const HomeScreen = () => {
       }
     }
 
-    // Stop tracking when switching to scroll mode
     if (mode === 'scroll') {
       try {
         const isRunning = await AttentionOSBridge.isTrackingRunning();
@@ -417,7 +438,6 @@ const HomeScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Centered Profile Section */}
             <View style={styles.profileContainer}>
               <View style={styles.profileCircle}>
                 <Ionicons name="person" size={50} color="#262626" />
@@ -425,7 +445,6 @@ const HomeScreen = () => {
               <Text style={styles.profileName}>{userName}</Text>
             </View>
 
-            {/* Centered Menu Items */}
             <View style={styles.menuItems}>
               <TouchableOpacity style={styles.menuItem}>
                 <Text style={styles.menuText}>Profile</Text>
@@ -488,11 +507,10 @@ const styles = StyleSheet.create({
   },
   closeIconContainer: {
     width: '100%',
-    alignItems: 'flex-end', // Fix: Make it align properly per your other close icon
+    alignItems: 'flex-end',
     marginBottom: width * 0.08,
   },
 
-  // Profile Alignment Styles
   profileContainer: {
     width: '100%',
     alignItems: 'center',
@@ -515,7 +533,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Menu Items Alignment Styles
   menuItems: {
     width: '80%',
     alignSelf: 'center',
