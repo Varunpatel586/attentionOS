@@ -1,6 +1,8 @@
 import FirebaseService from './FirebaseService';
 import { DeviceEventEmitter } from 'react-native';
 import AttentionOSBridge from '../utils/AttentionOSBridge';
+import BackgroundTimer from 'react-native-background-timer';
+import firestore from '@react-native-firebase/firestore';
 
 const POMODORO_FOCUS = 25 * 60; // 25 min
 const POMODORO_BREAK = 5 * 60; // 5 min
@@ -16,7 +18,9 @@ export interface TimerState {
 
 class TimerService {
   private static instance: TimerService;
-  private interval: ReturnType<typeof setInterval> | null = null;
+  private interval: any = null;
+  private accumulatedFocusSeconds: number = 0; // Batch local tracking variable
+
   private state: TimerState = {
     activeTab: 'Pomodoro',
     seconds: POMODORO_FOCUS,
@@ -83,7 +87,6 @@ class TimerService {
   private async saveTimerState(): Promise<void> {
     try {
       await FirebaseService.updateTimerState(this.state);
-      console.log('Timer state saved to Firebase:', this.state);
     } catch (error) {
       console.error('Failed to save timer state:', error);
     }
@@ -115,20 +118,20 @@ class TimerService {
   }
 
   /**
-   * Start the timer engine
+   * Start the timer engine using BackgroundTimer
    */
   private startTimerEngine(): void {
     if (this.interval) {
-      clearInterval(this.interval);
+      BackgroundTimer.clearInterval(this.interval);
     }
 
-    this.interval = setInterval(async () => {
+    this.interval = BackgroundTimer.setInterval(async () => {
       if (!this.state.isRunning) return;
 
       if (this.state.activeTab === 'Pomodoro') {
-        // Only increment focus time during focus sessions (not breaks)
+        // Accumulate focus time locally instead of writing to Firebase
         if (!this.state.isBreak) {
-          await this.updateFocusTime();
+          this.accumulatedFocusSeconds++;
         }
 
         if (this.state.seconds === 0) {
@@ -146,7 +149,7 @@ class TimerService {
         }
       } else {
         // Infinite mode - always counting focus time
-        await this.updateFocusTime();
+        this.accumulatedFocusSeconds++;
         this.state.seconds++;
       }
 
@@ -160,19 +163,29 @@ class TimerService {
   }
 
   /**
-   * Update focus time in Firebase
+   * Save accumulated focus time to Firebase (Batch Save)
    */
-  private async updateFocusTime(): Promise<void> {
-    try {
-      const userData = await FirebaseService.getUserData();
-      const currentFocusTime = userData?.stats?.todayFocusTime || 0;
+  private async saveAccumulatedFocusTime(): Promise<void> {
+    if (this.accumulatedFocusSeconds <= 0) return;
 
-      await FirebaseService.updateField(
-        'stats.todayFocusTime',
-        currentFocusTime + 1,
-      );
+    const secondsToSave = this.accumulatedFocusSeconds;
+    this.accumulatedFocusSeconds = 0; // Reset immediately to prevent double counting
+
+    try {
+      // Safely increment both daily and weekly stats using FieldValue
+      await Promise.all([
+        FirebaseService.updateField(
+          'stats.todayFocusTime',
+          firestore.FieldValue.increment(secondsToSave),
+        ),
+        FirebaseService.updateField(
+          'stats.weeklyFocusTime',
+          firestore.FieldValue.increment(secondsToSave),
+        ),
+      ]);
+      console.log(`✅ Saved ${secondsToSave}s of focus time to Firebase.`);
     } catch (error) {
-      console.error('Error updating focus time:', error);
+      console.error('Error saving accumulated focus time:', error);
     }
   }
 
@@ -180,7 +193,6 @@ class TimerService {
    * Update widgets with current timer state
    */
   private updateWidgets(): void {
-    // Import dynamically to avoid circular dependency
     import('../utils/widgetUpdater')
       .then(({ WidgetUpdater }) => {
         WidgetUpdater.updateTimer(this.state.seconds, this.state.isRunning);
@@ -209,8 +221,6 @@ class TimerService {
     this.state.isRunning = !this.state.isRunning;
 
     if (this.state.isRunning) {
-      // Ensure distracted scrolling tracking is running during focus sessions.
-      // Native side will start the service or show permission dialogs.
       try {
         AttentionOSBridge.startTracking();
       } catch (error) {
@@ -219,9 +229,11 @@ class TimerService {
       this.startTimerEngine();
     } else {
       if (this.interval) {
-        clearInterval(this.interval);
+        BackgroundTimer.clearInterval(this.interval);
         this.interval = null;
       }
+      // Save any pending focus time when paused
+      await this.saveAccumulatedFocusTime();
     }
 
     await this.saveTimerState();
@@ -241,9 +253,12 @@ class TimerService {
       this.state.activeTab === 'Pomodoro' ? POMODORO_FOCUS : 0;
 
     if (this.interval) {
-      clearInterval(this.interval);
+      BackgroundTimer.clearInterval(this.interval);
       this.interval = null;
     }
+
+    // Save pending focus time upon reset
+    await this.saveAccumulatedFocusTime();
 
     await this.saveTimerState();
     this.notifyListeners();
@@ -262,9 +277,12 @@ class TimerService {
     this.state.seconds = tab === 'Pomodoro' ? POMODORO_FOCUS : 0;
 
     if (this.interval) {
-      clearInterval(this.interval);
+      BackgroundTimer.clearInterval(this.interval);
       this.interval = null;
     }
+
+    // Save pending focus time when switching tabs
+    await this.saveAccumulatedFocusTime();
 
     await this.saveTimerState();
     this.notifyListeners();
@@ -284,7 +302,6 @@ class TimerService {
       const currentTodaySwitches = userData?.stats?.todayContextSwitches || 0;
       const currentWeeklySwitches = userData?.stats?.weeklyContextSwitches || 0;
 
-      // Update both daily and weekly context switches simultaneously
       await Promise.all([
         FirebaseService.updateField(
           'stats.todayContextSwitches',
@@ -366,9 +383,12 @@ class TimerService {
    */
   cleanup(): void {
     if (this.interval) {
-      clearInterval(this.interval);
+      BackgroundTimer.clearInterval(this.interval);
       this.interval = null;
     }
+
+    // Save any pending focus time before cleanup
+    this.saveAccumulatedFocusTime();
 
     if (this.activeTaskListener) {
       this.activeTaskListener();
