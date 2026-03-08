@@ -108,38 +108,9 @@ const HomeScreen = () => {
     }
   };
 
-  // --- Sync Local Native Tracker to Firebase ---
-  const syncScrollTimeToFirebase = async () => {
-    if (!user) return;
-    try {
-      // 1. Get the absolute truth from the native Android bridge
-      const todayDistractedTimeMs =
-        await AttentionOSBridge.getTodayDistractedTime();
-      const localScrollSeconds = Math.floor(todayDistractedTimeMs / 1000);
-
-      // 2. Read what Firebase currently thinks the scroll time is
-      const userRef = firestore().collection('users').doc(user.uid);
-      const userDoc = await userRef.get();
-      const firebaseTodayScroll = userDoc.data()?.stats?.todayScrollTime || 0;
-
-      // 3. If local tracker has more time than Firebase, push the update
-      if (localScrollSeconds > firebaseTodayScroll) {
-        const difference = localScrollSeconds - firebaseTodayScroll;
-
-        await userRef.update({
-          'stats.todayScrollTime': localScrollSeconds,
-          'stats.weeklyScrollTime': firestore.FieldValue.increment(difference),
-          'stats.lastUpdated': firestore.FieldValue.serverTimestamp(),
-        });
-
-        console.log(
-          `✅ Synced ${difference} new distracted seconds to Firebase!`,
-        );
-      }
-    } catch (error) {
-      console.error('Error syncing scroll time to Firebase:', error);
-    }
-  };
+  // --- Simple Firebase Stats Update ---
+  // Note: Scrolling time is now synced directly from Android service
+  // No need for complex sync logic anymore
 
   useEffect(() => {
     if (!user) return;
@@ -180,19 +151,19 @@ const HomeScreen = () => {
         setTodos(list);
       });
 
-    // Run sync immediately on mount
-    syncScrollTimeToFirebase();
+    // Run sync immediately on mount - no longer needed, Android syncs directly
+    // syncScrollTimeToFirebase();
 
-    // Sync from native bridge to Firebase every 30 seconds
-    const syncInterval = setInterval(() => {
-      syncScrollTimeToFirebase();
-    }, 30000);
+    // Sync from native bridge to Firebase every 30 seconds - no longer needed
+    // const syncInterval = setInterval(() => {
+    //   syncScrollTimeToFirebase();
+    // }, 30000);
 
     return () => {
       unsubscribeUser();
       unsubscribeBigThree();
       unsubscribeTodos();
-      clearInterval(syncInterval);
+      // clearInterval(syncInterval); // No longer needed
     };
   }, [user]);
 

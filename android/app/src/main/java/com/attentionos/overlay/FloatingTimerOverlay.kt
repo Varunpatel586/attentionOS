@@ -295,36 +295,20 @@ class FloatingTimerOverlay private constructor() {
     }
 
     /**
-     * Start the timer that updates every second
+     * Start the timer display (no independent counting)
      */
     private fun startTimer() {
         if (isTimerRunning) return
 
         isTimerRunning = true
-
-        // Properly assign the runnable to the variable so it can be cancelled later
-        timerRunnable = object : Runnable {
-            override fun run() {
-                if (!isTimerRunning || overlayView == null) return
-
-                currentSeconds++
-                updateTimer(currentSeconds)
-
-                // Schedule next update
-                handler?.postDelayed(this, 1000)
-            }
-        }
-
-        handler?.post(timerRunnable!!)
+        // Timer is now controlled externally - no independent counting
     }
 
     /**
-     * Stop the timer
+     * Stop the timer display
      */
     private fun stopTimer() {
         isTimerRunning = false
-        // Now this will correctly remove the callbacks
-        timerRunnable?.let { handler?.removeCallbacks(it) }
-        timerRunnable = null
+        // No independent timer to clean up - controlled externally
     }
 }

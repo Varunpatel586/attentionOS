@@ -50,6 +50,14 @@ interface SessionDao {
     fun deleteOldSessions(beforeTimestamp: Long): Int
 
     /**
+     * Delete all sessions from today.
+     * @param todayStartMillis Timestamp of today's midnight (00:00:00)
+     * @return Number of sessions deleted
+     */
+    @Query("DELETE FROM app_sessions WHERE startTime >= :todayStartMillis")
+    fun deleteTodaySessions(todayStartMillis: Long): Int
+
+    /**
      * Get the sum of duration for all DISTRACTED sessions today.
      * @param todayStartMillis Timestamp of today's midnight
      * @return Total distracted time in milliseconds (0 if no sessions)

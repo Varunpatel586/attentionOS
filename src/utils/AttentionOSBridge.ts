@@ -44,6 +44,15 @@ class AttentionOSBridge {
   }
 
   /**
+   * Reset today's distracted scrolling time.
+   * Clears all session data for today from local database.
+   * @returns Promise resolving when reset is complete
+   */
+  async resetTodayDistractedTime(): Promise<void> {
+    return await AttentionOSModule.resetTodayDistractedTime();
+  }
+
+  /**
    * Check all required permissions.
    * @returns Promise resolving to permission status object
    */

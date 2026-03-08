@@ -81,6 +81,18 @@ class SessionRepository(private val sessionDao: SessionDao) {
     }
 
     /**
+     * Reset today's distracted scrolling time.
+     * Deletes all sessions recorded for today.
+     * @return Number of sessions deleted
+     */
+    suspend fun resetTodayDistractedTime(): Int {
+        return withContext(Dispatchers.IO) {
+            val todayStart = getTodayStartMillis()
+            sessionDao.deleteTodaySessions(todayStart)
+        }
+    }
+
+    /**
      * Get timestamp for today's midnight (00:00:00).
      */
     private fun getTodayStartMillis(): Long {

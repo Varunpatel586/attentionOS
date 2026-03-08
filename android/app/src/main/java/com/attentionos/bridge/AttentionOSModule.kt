@@ -220,6 +220,29 @@ class AttentionOSModule(reactContext: ReactApplicationContext) : ReactContextBas
         }
     }
 
+    /**
+     * Reset today's distracted scrolling time.
+     * Clears all session data for today from the local database.
+     * @param promise Resolves when reset is complete
+     */
+    @ReactMethod
+    fun resetTodayDistractedTime(promise: Promise) {
+        Log.d(TAG, "resetTodayDistractedTime called")
+        
+        moduleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    sessionRepository.resetTodayDistractedTime()
+                }
+                promise.resolve(true)
+                Log.i(TAG, "Successfully reset today's distracted time")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error resetting today's distracted time", e)
+                promise.reject("ERROR", "Failed to reset today's distracted time: ${e.message}")
+            }
+        }
+    }
+
     companion object {
         private const val TAG = "AttentionOSModule"
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001

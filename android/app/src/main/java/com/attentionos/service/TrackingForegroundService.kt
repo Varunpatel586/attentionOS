@@ -23,6 +23,8 @@ import com.attentionos.tracking.SessionClassifier
 import com.attentionos.tracking.UsageStatsHelper
 import com.attentionos.overlay.FloatingTimerOverlay
 import com.attentionos.overlay.OverlayPermissionHelper
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -237,9 +239,14 @@ class TrackingForegroundService : Service() {
 
                 // ✅ CRITICAL FIX: Continue accumulating attention for up to 5 minutes without scrolls
                 // This supports watching long reels/videos without interaction
-                if (idleTime <= ATTENTION_ACCUMULATION_IDLE_LIMIT) {
+                // BUT NOT during active scrolling (to avoid double counting)
+                val isActivelyScrolling = idleTime < 2000L // Consider active if idle < 2 seconds
+                
+                if (idleTime <= ATTENTION_ACCUMULATION_IDLE_LIMIT && !isActivelyScrolling) {
                     attentionTime += POLLING_INTERVAL_MS
                     Log.v(TAG, "📊 Attention accumulated: ${attentionTime}ms (idle: ${idleTime}ms / ${ATTENTION_ACCUMULATION_IDLE_LIMIT}ms)")
+                } else if (isActivelyScrolling) {
+                    Log.v(TAG, "⏸️ Skipping attention accumulation during active scrolling")
                 } else {
                     Log.v(TAG, "⏸️ Idle time exceeded accumulation limit (${idleTime}ms > ${ATTENTION_ACCUMULATION_IDLE_LIMIT}ms) - checking for session end")
                     
@@ -270,9 +277,15 @@ class TrackingForegroundService : Service() {
             
             // Continue accumulating attention time even when foregroundApp is null
             // as long as we're within idle limits and screen is on
-            if (isScreenOn && idleTime <= ATTENTION_ACCUMULATION_IDLE_LIMIT) {
+            // BUT NOT during active scrolling (to avoid double counting)
+            val timeSinceLastScroll = if (lastScrollTimestamp > 0) now - lastScrollTimestamp else 0L
+            val isActivelyScrolling = timeSinceLastScroll < 2000L // Consider active if scroll within 2 seconds
+            
+            if (isScreenOn && idleTime <= ATTENTION_ACCUMULATION_IDLE_LIMIT && !isActivelyScrolling) {
                 attentionTime += POLLING_INTERVAL_MS
-                Log.v(TAG, "📊 Attention accumulated during null foreground: ${attentionTime}ms (idle: ${idleTime}ms)")
+                Log.v(TAG, "📊 Attention accumulated: ${attentionTime}ms (idle: ${idleTime}ms / ${ATTENTION_ACCUMULATION_IDLE_LIMIT}ms)")
+            } else if (isActivelyScrolling) {
+                Log.v(TAG, "⏸️ Skipping attention accumulation during active scrolling")
             }
             
             // Only end session if user has been idle for 5+ minutes
@@ -363,10 +376,52 @@ class TrackingForegroundService : Service() {
             }
         }
 
+        // Sync to Firebase (async) - only sync scrollTime for DISTRACTED sessions
+        // This ensures we only count active scrolling, not passive viewing
+        if (classification == "DISTRACTED") {
+            syncToFirebase(scrollTime) // Only sync scroll time, not total time
+        }
+
         resetSessionState()
         
         // Hide overlay when session ends
         hideOverlay()
+    }
+
+    /**
+     * Sync scrolling time to Firebase directly.
+     * Updates both daily and weekly scroll time.
+     */
+    private fun syncToFirebase(durationMillis: Long) {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            Log.w(TAG, "Cannot sync to Firebase: No authenticated user")
+            return
+        }
+
+        val durationSeconds = durationMillis / 1000L
+        
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val firestore = FirebaseFirestore.getInstance()
+                val userDoc = firestore.collection("users").document(currentUser.uid)
+                
+                // Update both today's and weekly scroll time
+                userDoc.update(
+                    mapOf(
+                        "stats.todayScrollTime" to com.google.firebase.firestore.FieldValue.increment(durationSeconds),
+                        "stats.weeklyScrollTime" to com.google.firebase.firestore.FieldValue.increment(durationSeconds),
+                        "stats.lastUpdated" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                    )
+                ).addOnSuccessListener {
+                    Log.i(TAG, "✅ Synced ${durationSeconds}s to Firebase")
+                }.addOnFailureListener { e ->
+                    Log.e(TAG, "❌ Failed to sync to Firebase", e)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error syncing to Firebase", e)
+            }
+        }
     }
 
     /**

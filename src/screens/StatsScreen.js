@@ -52,7 +52,7 @@ const StatsScreen = () => {
         loadUserStats(),
         loadTodoStats(),
         loadBigThreeProgress(),
-        loadScrollingTime(),
+        // loadScrollingTime(), // No longer needed - loaded in loadUserStats
       ]);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -72,6 +72,7 @@ const StatsScreen = () => {
         ...prev,
         //Check the stats map first, fallback to root if necessary
         focusedTime: data.stats?.todayFocusTime ?? data.todayFocusTime ?? 0,
+        scrollingTime: data.stats?.todayScrollTime ?? data.todayScrollTime ?? 0,
         contextSwitches:
           data.stats?.todayContextSwitches ?? data.todayContextSwitches ?? 0,
         productiveSlot: data.mostProductiveSlot || '10–12 AM',
@@ -122,15 +123,9 @@ const StatsScreen = () => {
   };
 
   const loadScrollingTime = async () => {
-    try {
-      const scrollTime = await AttentionOSBridge.getTodayDistractedTime();
-      setStats(prev => ({
-        ...prev,
-        scrollingTime: Math.floor(scrollTime / 1000), // Convert ms to seconds
-      }));
-    } catch (error) {
-      console.error('Error loading scrolling time:', error);
-    }
+    // Note: Scrolling time is now synced directly from Android to Firebase
+    // No need to read from native bridge anymore
+    // This function can be removed since scrollingTime is loaded in loadUserStats
   };
 
   const formatTime = seconds => {
@@ -162,35 +157,44 @@ const StatsScreen = () => {
     return tasksGained || 1;
   };
 
-  const performReset = () => {
+  const performReset = async () => {
     // Implement reset logic - could reset daily stats
     if (!user) return;
 
-    // Use dot notation to reset the nested stats
-    firestore().collection('users').doc(user.uid).update({
-      'stats.todayFocusTime': 0,
-      'stats.todayContextSwitches': 0,
-      'stats.todayScrollTime': 0, // Reset scroll time too
-    });
+    try {
+      // Reset local native scrolling time first - no longer needed since we sync directly to Firebase
+      // await AttentionOSBridge.resetTodayDistractedTime();
+      // console.log('✅ Reset local native scrolling time');
 
-    // Reset todos completion
-    firestore()
-      .collection('users')
-      .doc(user.uid)
-      .collection('todos')
-      .get()
-      .then(snapshot => {
-        const batch = firestore().batch();
-        snapshot.docs.forEach(doc => {
-          batch.update(doc.ref, { completed: false });
-        });
-        return batch.commit();
-      })
-      .then(() => {
-        // Optional: Re-fetch the stats to immediately update the UI after the reset
-        loadAllStats();
-      })
-      .catch(error => console.error('Error resetting data:', error));
+      // Use dot notation to reset nested stats in Firebase
+      await firestore().collection('users').doc(user.uid).update({
+        'stats.todayFocusTime': 0,
+        'stats.todayContextSwitches': 0,
+        'stats.todayScrollTime': 0, // Reset scroll time in Firebase too
+      });
+
+      console.log('✅ Reset Firebase stats');
+
+      // Reset todos completion
+      const todosSnapshot = await firestore()
+        .collection('users')
+        .doc(user.uid)
+        .collection('todos')
+        .get();
+
+      const batch = firestore().batch();
+      todosSnapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { completed: false });
+      });
+      await batch.commit();
+
+      console.log('✅ Reset todos completion');
+
+      // Re-fetch stats to immediately update UI after reset
+      await loadAllStats();
+    } catch (error) {
+      console.error('Error resetting data:', error);
+    }
   };
 
   const handleReset = () => {

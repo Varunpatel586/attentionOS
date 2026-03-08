@@ -54,7 +54,7 @@ object SessionClassifier {
      * YouTube: 30s (longer videos, but still quick to detect)
      */
     private val APP_THRESHOLDS = mapOf(
-        "com.instagram.android" to 10_000L,        // Instagram: 10s (1-2 reels)
+        "com.instagram.android" to 20_000L,        // Instagram: 20s (1-2 reels)
         "com.zhiliaoapp.musically" to 20_000L,     // TikTok: 20s (1-2 shorts)
         "com.snapchat.android" to 20_000L,         // Snapchat: 20s
         "com.twitter.android" to 10_000L,          // Twitter: 50s
