@@ -1,197 +1,167 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  FlatList,
+  ActivityIndicator,
   Alert,
-  DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import BottomNavbar from '../components/BottomNavbar';
-import TaskSwitchConfirmDialog from '../components/TaskSwitchConfirmDialog';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
+import TimerService from '../services/TimerService';
 
 const POMODORO_FOCUS = 25 * 60; // 25 min
 const POMODORO_BREAK = 5 * 60; // 5 min
 
 const TimerScreen = () => {
-  const [activeTab, setActiveTab] = useState('Pomodoro');
-  const [distractions, setDistractions] = useState(0);
+  const [timerState, setTimerState] = useState({
+    activeTab: 'Pomodoro',
+    seconds: POMODORO_FOCUS,
+    isRunning: false,
+    isBreak: false,
+    distractions: 0,
+    activeTask: null,
+  });
 
-  const [seconds, setSeconds] = useState(POMODORO_FOCUS);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isBreak, setIsBreak] = useState(false);
+  // --- Modal & Task States ---
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
 
-  const [activeTask, setActiveTask] = useState(null);
-  const [isConfirmDialogVisible, setIsConfirmDialogVisible] = useState(false);
-  const [pendingTask, setPendingTask] = useState(null);
+  const timerService = TimerService.getInstance();
 
-  const intervalRef = useRef(null);
-  const lastUpdateRef = useRef(Date.now());
-
-  /* ---------------- ACTIVE TASK LISTENER ---------------- */
+  /* ---------------- TIMER SERVICE SUBSCRIPTION ---------------- */
 
   useEffect(() => {
-    const user = auth().currentUser;
-    if (!user) return;
+    timerService.initialize();
 
-    const unsubscribe = firestore()
-      .collection('users')
-      .doc(user.uid)
-      .collection('bigThree')
-      .where('active', '==', true)
-      .onSnapshot(snapshot => {
-        if (!snapshot.empty) {
-          const doc = snapshot.docs[0];
-          setActiveTask({ id: doc.id, ...doc.data() });
-        } else {
-          setActiveTask(null);
-          setIsRunning(false); // stop timer if no task
-        }
-      });
-
-    const taskSub = DeviceEventEmitter.addListener('taskSelectedGlobally', (task) => {
-      handleTaskSelected(task);
+    const unsubscribe = timerService.subscribe(state => {
+      setTimerState(state);
     });
 
-    return () => {
-      unsubscribe();
-      taskSub.remove();
-    };
+    return unsubscribe;
   }, []);
-
-  /* ---------------- UPDATE FOCUS TIME IN FIREBASE ---------------- */
-
-  const updateFocusTime = async () => {
-    const user = auth().currentUser;
-    if (!user) return;
-
-    try {
-      const userRef = firestore().collection('users').doc(user.uid);
-      const userDoc = await userRef.get();
-      const currentFocusTime = userDoc.data()?.todayFocusTime || 0;
-
-      // Increment by 1 second
-      await userRef.update({
-        todayFocusTime: currentFocusTime + 1,
-      });
-    } catch (error) {
-      console.error('Error updating focus time:', error);
-    }
-  };
-
-  /* ---------------- TIMER ENGINE ---------------- */
-
-  useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    if (!isRunning) return;
-
-    intervalRef.current = setInterval(() => {
-      setSeconds(prev => {
-        if (activeTab === 'Pomodoro') {
-          // Only increment focus time during focus sessions (not breaks)
-          if (!isBreak) {
-            updateFocusTime();
-          }
-
-          if (prev === 0) {
-            const nextIsBreak = !isBreak;
-            setIsBreak(nextIsBreak);
-            return nextIsBreak ? POMODORO_BREAK : POMODORO_FOCUS;
-          }
-          return prev - 1;
-        } else {
-          // Infinite mode - always counting focus time
-          updateFocusTime();
-          return prev + 1;
-        }
-      });
-    }, 1000);
-
-    return () => clearInterval(intervalRef.current);
-  }, [isRunning, activeTab, isBreak]);
 
   /* ---------------- CONTROLS ---------------- */
 
   const toggleTimer = () => {
-    if (activeTab === 'Pomodoro' && !activeTask) return;
-    setIsRunning(prev => !prev);
+    timerService.toggleTimer();
   };
 
   const resetTimer = () => {
-    setIsRunning(false);
-    setIsBreak(false);
-    setSeconds(activeTab === 'Pomodoro' ? POMODORO_FOCUS : 0);
+    timerService.resetTimer();
   };
 
   const switchTab = tab => {
-    setActiveTab(tab);
-    setIsRunning(false);
-    setIsBreak(false);
-    setSeconds(tab === 'Pomodoro' ? POMODORO_FOCUS : 0);
+    timerService.switchTab(tab);
   };
 
-  /* ---------------- DISTRACTION TRACKING ---------------- */
+  /* ---------------- CHANGE TASK LOGIC & MODAL ---------------- */
 
-  const handleDistraction = async () => {
-    setDistractions(d => d + 1);
+  const openTaskModal = async () => {
+    setIsModalVisible(true);
+    setIsLoadingTasks(true);
 
+    try {
+      const user = auth().currentUser;
+      if (!user) return;
+
+      // Fetching tasks from the 'todos' sub-collection (adjust if using 'bigThree')
+      const snapshot = await firestore()
+        .collection('users')
+        .doc(user.uid)
+        .collection('todos')
+        .get();
+
+      const fetchedTasks = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setTasks(fetchedTasks);
+    } catch (error) {
+      console.error('Error fetching tasks for modal:', error);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
+
+  const handleSelectTask = task => {
+    if (timerState.isRunning && timerState.activeTask?.id !== task.id) {
+      // Timer is running, ask for confirmation
+      Alert.alert(
+        'Switch Task?',
+        `You are currently working on "${
+          timerState.activeTask?.title || 'a task'
+        }". Do you want to switch to "${task.title}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Switch',
+            style: 'destructive',
+            onPress: () => actuallySwitchTask(task),
+          },
+        ],
+        { cancelable: true },
+      );
+    } else {
+      // Timer not running, just switch it
+      actuallySwitchTask(task);
+    }
+  };
+
+  const actuallySwitchTask = async task => {
+    setIsModalVisible(false); // Close the modal
     const user = auth().currentUser;
     if (!user) return;
 
     try {
-      const userRef = firestore().collection('users').doc(user.uid);
-      const userDoc = await userRef.get();
-      const currentSwitches = userDoc.data()?.todayContextSwitches || 0;
+      const batch = firestore().batch();
 
-      await userRef.update({
-        todayContextSwitches: currentSwitches + 1,
-      });
+      // 1. Mark current task as inactive (if one exists)
+      if (timerState.activeTask?.id) {
+        const oldTaskRef = firestore()
+          .collection('users')
+          .doc(user.uid)
+          .collection('todos')
+          .doc(timerState.activeTask.id);
+        batch.update(oldTaskRef, { active: false });
+      }
+
+      // 2. Mark new task as active
+      const newTaskRef = firestore()
+        .collection('users')
+        .doc(user.uid)
+        .collection('todos')
+        .doc(task.id);
+      batch.update(newTaskRef, { active: true });
+
+      await batch.commit();
+
+      // Note: Because TimerService is listening to Firestore,
+      // the activeTask in your UI should automatically update once the batch commits!
     } catch (error) {
-      console.error('Error updating context switches:', error);
+      console.error('Error switching active task:', error);
     }
   };
 
-  /* ---------------- CHANGE TASK HANDLERS ---------------- */
+  /* ---------------- DISTRACTION TRACKING ---------------- */
 
-  const handleChangeTask = () => {
-    DeviceEventEmitter.emit('openTaskModal');
-  };
-
-  const handleTaskSelected = task => {
-    if (isRunning && task.id !== activeTask?.id) {
-      // Timer is running and user selected a different task
-      setPendingTask(task);
-      setIsConfirmDialogVisible(true);
-    } else {
-      // Timer not running or same task selected, no action needed here
-    }
-  };
-
-  const handleConfirmTaskSwitch = () => {
-    setIsConfirmDialogVisible(false);
-    // Task is already updated by TaskSelectorModal handleSelectTask
-    setPendingTask(null);
-  };
-
-  const handleCancelTaskSwitch = () => {
-    setIsConfirmDialogVisible(false);
-    setPendingTask(null);
-    // Reopen the global task selector so user can choose again
-    DeviceEventEmitter.emit('openTaskModal');
+  const handleDistraction = () => {
+    timerService.handleDistraction();
   };
 
   /* ---------------- TIME FORMAT ---------------- */
 
-  const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
-  const secs = String(seconds % 60).padStart(2, '0');
+  const minutes = String(Math.floor(timerState.seconds / 60)).padStart(2, '0');
+  const secs = String(timerState.seconds % 60).padStart(2, '0');
 
   /* ---------------- UI ---------------- */
 
@@ -209,12 +179,14 @@ const TimerScreen = () => {
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === tab && styles.activeTabText,
+                  timerState.activeTab === tab && styles.activeTabText,
                 ]}
               >
                 {tab}
               </Text>
-              {activeTab === tab && <View style={styles.activeTabIndicator} />}
+              {timerState.activeTab === tab && (
+                <View style={styles.activeTabIndicator} />
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -232,9 +204,9 @@ const TimerScreen = () => {
         </View>
 
         {/* Pomodoro Phase */}
-        {activeTab === 'Pomodoro' && (
+        {timerState.activeTab === 'Pomodoro' && (
           <Text style={styles.phaseText}>
-            {isBreak ? 'Break Time' : 'Focus Time'}
+            {timerState.isBreak ? 'Break Time' : 'Focus Time'}
           </Text>
         )}
 
@@ -242,7 +214,7 @@ const TimerScreen = () => {
         <View style={styles.controlsPill}>
           <TouchableOpacity onPress={toggleTimer}>
             <Ionicons
-              name={isRunning ? 'pause' : 'play'}
+              name={timerState.isRunning ? 'pause' : 'play'}
               size={28}
               color="#FFF"
             />
@@ -257,10 +229,14 @@ const TimerScreen = () => {
         <View style={styles.taskContainer}>
           <View style={styles.taskCard}>
             <Text style={styles.taskTitleText}>
-              {activeTask ? activeTask.title : 'No active task'}
+              {timerState.activeTask
+                ? timerState.activeTask.title
+                : 'No active task'}
             </Text>
             <Text style={styles.taskGroupText}>
-              {activeTask ? activeTask.category : 'Select a task'}
+              {timerState.activeTask
+                ? timerState.activeTask.category || 'Focus Task'
+                : 'Select a task'}
             </Text>
           </View>
         </View>
@@ -273,13 +249,15 @@ const TimerScreen = () => {
           >
             <Text style={styles.distractionBtnText}>I got distracted!</Text>
           </TouchableOpacity>
-          <Text style={styles.distractionCountText}>{distractions} times</Text>
+          <Text style={styles.distractionCountText}>
+            {timerState.distractions} times
+          </Text>
         </View>
 
         {/* Change Task Button */}
         <TouchableOpacity
           style={styles.changeTaskButton}
-          onPress={handleChangeTask}
+          onPress={openTaskModal}
           activeOpacity={0.7}
         >
           <Text style={styles.changeTaskButtonText}>Change task</Text>
@@ -289,14 +267,74 @@ const TimerScreen = () => {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Task Switch Confirmation Dialog */}
-      <TaskSwitchConfirmDialog
-        visible={isConfirmDialogVisible}
-        onConfirm={handleConfirmTaskSwitch}
-        onCancel={handleCancelTaskSwitch}
-        pendingTask={pendingTask}
-        currentTaskTitle={activeTask?.title || 'current task'}
-      />
+      {/* Local Task Selection Modal */}
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select a Task</Text>
+              <TouchableOpacity onPress={() => setIsModalVisible(false)}>
+                <Ionicons name="close-circle" size={28} color="#999" />
+              </TouchableOpacity>
+            </View>
+
+            {isLoadingTasks ? (
+              <ActivityIndicator
+                size="large"
+                color="#262626"
+                style={{ marginTop: 20 }}
+              />
+            ) : tasks.length === 0 ? (
+              <Text style={styles.emptyTasksText}>No tasks found.</Text>
+            ) : (
+              <FlatList
+                data={tasks}
+                keyExtractor={item => item.id}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.modalTaskItem,
+                      timerState.activeTask?.id === item.id &&
+                        styles.modalTaskItemActive,
+                    ]}
+                    onPress={() => handleSelectTask(item)}
+                  >
+                    <View>
+                      <Text
+                        style={[
+                          styles.modalTaskTitle,
+                          timerState.activeTask?.id === item.id &&
+                            styles.modalTaskTitleActive,
+                        ]}
+                      >
+                        {item.title}
+                      </Text>
+                      {item.category && (
+                        <Text style={styles.modalTaskCategory}>
+                          {item.category}
+                        </Text>
+                      )}
+                    </View>
+                    {timerState.activeTask?.id === item.id && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={24}
+                        color="#FFF"
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <BottomNavbar />
     </SafeAreaProvider>
@@ -332,7 +370,7 @@ const styles = StyleSheet.create({
   timerNumber: { fontSize: 100, fontWeight: '800', color: '#262626' },
   timerLabel: { fontSize: 24, fontWeight: '700', marginLeft: 4 },
 
-  phaseText: { marginBottom: 20, fontWeight: '600' },
+  phaseText: { marginTop: -40, marginBottom: 20, fontWeight: '600' },
 
   controlsPill: {
     flexDirection: 'row',
@@ -357,6 +395,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#E9E5DC',
     padding: 8,
     borderRadius: 40,
@@ -368,8 +407,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     borderRadius: 35,
   },
-  distractionBtnText: { color: '#FFF', fontWeight: '600' },
-  distractionCountText: { fontSize: 24, fontWeight: '800' },
+  distractionBtnText: { color: '#FFF', fontWeight: '600', fontSize: 18 },
+  distractionCountText: { fontSize: 24, fontWeight: '800', marginRight: 15 },
 
   changeTaskButton: {
     flexDirection: 'row',
@@ -391,6 +430,65 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  // --- Modal Styles ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#F2EFE9',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 25,
+    paddingBottom: 40,
+    paddingTop: 25,
+    maxHeight: '75%', // Leaves some room at the top of the screen
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#262626',
+  },
+  emptyTasksText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  modalTaskItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#E9E5DC',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    marginBottom: 12,
+  },
+  modalTaskItemActive: {
+    backgroundColor: '#262626',
+  },
+  modalTaskTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#262626',
+  },
+  modalTaskTitleActive: {
+    color: '#FFF',
+  },
+  modalTaskCategory: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 4,
   },
 });
 

@@ -8,7 +8,6 @@ import {
   Animated,
   Dimensions,
   Easing,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
@@ -61,6 +60,53 @@ const HomeScreen = () => {
     ]).start();
   }, [activeMode, isMenuOpen]);
 
+  // Reset Focus Time on New Day
+  const checkAndResetDailyStats = async () => {
+    if (!user) return;
+    try {
+      const userRef = firestore().collection('users').doc(user.uid);
+      const doc = await userRef.get();
+      const data = doc.data();
+
+      if (data && data.lastUpdated) {
+        const lastUpdatedDate = data.lastUpdated.toDate();
+        const today = new Date();
+        const daysSinceLastUpdate =
+          (today - lastUpdatedDate) / (1000 * 60 * 60 * 24);
+
+        // Strip the time to compare just the calendar dates
+        if (lastUpdatedDate.setHours(0, 0, 0, 0) < today.setHours(0, 0, 0, 0)) {
+          // 1. Prepare Daily Reset Payload
+          const updates = {
+            todayFocusTime: 0,
+            todayScrollTime: 0,
+            todayContextSwitches: 0,
+            lastUpdated: firestore.FieldValue.serverTimestamp(),
+          };
+
+          // 2. Check for Weekly Reset (If it's Monday OR it's been over 7 days since last update)
+          const isMonday = new Date().getDay() === 1; // 0 is Sunday, 1 is Monday
+
+          if (isMonday || daysSinceLastUpdate >= 7) {
+            updates.weeklyFocusTime = 0;
+            updates.weeklyScrollTime = 0;
+            updates.weeklyContextSwitches = 0;
+          }
+
+          // Push all updates to Firebase at once
+          await userRef.update(updates);
+        }
+      } else if (data && !data.lastUpdated) {
+        // Fallback if lastUpdated doesn't exist yet
+        await userRef.update({
+          lastUpdated: firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error('Error checking resets:', error);
+    }
+  };
+
   // Load real scroll time from AttentionOSBridge
   const loadScrollTime = async () => {
     try {
@@ -73,32 +119,11 @@ const HomeScreen = () => {
     }
   };
 
-  // Request permissions on first mount
-  const requestInitialPermissions = async () => {
-    try {
-      const needsPermissions = await AttentionOSBridge.requestAllPermissions();
-      if (needsPermissions) {
-        console.log('Permission requests shown to user');
-      } else {
-        console.log('All permissions already granted');
-      }
-    } catch (error) {
-      console.warn('Could not show permission dialogs yet (activity may not be ready):', error);
-      // Permission dialogs will show when user tries to enable tracking
-    }
-  };
-
-  useEffect(() => {
-    // Delay permission request to ensure activity is ready
-    const timer = setTimeout(() => {
-      requestInitialPermissions();
-    }, 1500); // Give the activity 1.5 seconds to initialize
-
-    return () => clearTimeout(timer);
-  }, []);
-
   useEffect(() => {
     if (!user) return;
+
+    // Run the reset check when the screen mounts
+    checkAndResetDailyStats();
 
     const unsubscribeUser = firestore()
       .collection('users')
@@ -107,17 +132,10 @@ const HomeScreen = () => {
         const data = doc.data();
         if (data) {
           setUserName(data.name || 'Harsheel');
+          const currentFocusTime =
+            data.stats?.todayFocusTime ?? data.todayFocusTime ?? 0;
+          setFocusTime(currentFocusTime);
           setActiveMode(data.activeMode || 'focus');
-          
-          // Only update focusTime if we're NOT currently incrementing it locally
-          // logic: if mode is scroll, or if the diff is significant (e.g. initial load)
-          const remoteTime = data.todayFocusTime || 0;
-          setFocusTime(currentLocal => {
-            if (activeMode === 'scroll') return remoteTime;
-            // During focus, only allow remote to "jump" if it's much larger (sync from elsewhere)
-            if (Math.abs(currentLocal - remoteTime) > 60) return remoteTime;
-            return currentLocal;
-          });
         }
       });
 
@@ -155,34 +173,6 @@ const HomeScreen = () => {
     };
   }, [user]);
 
-  /* ---------------- FOCUS STOPWATCH ---------------- */
-
-  useEffect(() => {
-    if (activeMode !== 'focus' || !user) return;
-
-    // Increment local state every second
-    const stopwatchInterval = setInterval(() => {
-      setFocusTime(prev => prev + 1);
-    }, 1000);
-
-    return () => {
-      clearInterval(stopwatchInterval);
-    };
-  }, [activeMode, user]);
-
-  // Refined Sync Logic: Send local state to Firestore only on change or periodically
-  const lastSyncedTime = useRef(0);
-  useEffect(() => {
-    if (activeMode === 'focus' && user && Math.abs(focusTime - lastSyncedTime.current) >= 30) {
-      lastSyncedTime.current = focusTime;
-      firestore()
-        .collection('users')
-        .doc(user.uid)
-        .update({ todayFocusTime: focusTime })
-        .catch(err => console.error('Periodic sync err:', err));
-    }
-  }, [focusTime, activeMode, user]);
-
   const switchActiveMode = async mode => {
     if (!user) return;
 
@@ -191,76 +181,29 @@ const HomeScreen = () => {
       try {
         const isRunning = await AttentionOSBridge.isTrackingRunning();
         if (!isRunning) {
-          // Check if permissions are granted
-          const permissions = await AttentionOSBridge.checkPermissions();
-          if (permissions.usageStats && permissions.accessibility) {
-            // All permissions granted, start tracking
-            AttentionOSBridge.startTracking();
-            setActiveMode('focus');
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .update({ activeMode: 'focus' });
-          } else {
-            // Show alert and offer to request permissions
-            Alert.alert(
-              'Permissions Required',
-              'Please enable the required permissions to start tracking.',
-              [
-                {
-                  text: 'Request Permissions',
-                  onPress: async () => {
-                    await AttentionOSBridge.requestAllPermissions();
-                  },
-                },
-                {
-                  text: 'Cancel',
-                  onPress: () => {},
-                  style: 'cancel',
-                },
-              ]
-            );
-            return;
-          }
-        } else {
-          setActiveMode('focus');
-          await firestore()
-            .collection('users')
-            .doc(user.uid)
-            .update({ activeMode: 'focus' });
+          AttentionOSBridge.startTracking();
         }
       } catch (error) {
         console.error('Error starting tracking:', error);
-        Alert.alert('Error', 'Failed to start tracking. Please try again.');
       }
     }
 
     // Stop tracking when switching to scroll mode
     if (mode === 'scroll') {
       try {
-        // Immediate sync of focus time before switching
-        if (user) {
-          await firestore()
-            .collection('users')
-            .doc(user.uid)
-            .update({ todayFocusTime: focusTime });
-          lastSyncedTime.current = focusTime;
-        }
-
         const isRunning = await AttentionOSBridge.isTrackingRunning();
         if (isRunning) {
           AttentionOSBridge.stopTracking();
         }
-        setActiveMode('scroll');
-        await firestore()
-          .collection('users')
-          .doc(user.uid)
-          .update({ activeMode: 'scroll' });
       } catch (error) {
         console.error('Error stopping tracking:', error);
-        Alert.alert('Error', 'Failed to stop tracking. Please try again.');
       }
     }
+
+    await firestore()
+      .collection('users')
+      .doc(user.uid)
+      .update({ activeMode: mode });
   };
 
   const switchActiveBigThree = async clickedTask => {
@@ -397,14 +340,16 @@ const HomeScreen = () => {
                 <View style={{ marginTop: 12 }}>
                   <Text
                     style={[
-                      task.active ? styles.activeBigThreeTitle : styles.bigThreeTitle,
+                      styles.bigThreeTitle,
+                      { color: task.active ? '#FFFFFF' : '#262626' },
                     ]}
                   >
                     {task.title}
                   </Text>
                   <Text
                     style={[
-                      task.active ? styles.activeBigThreeCategory : styles.bigThreeCategory,
+                      styles.bigThreeCategory,
+                      { color: task.active ? '#F2EFE8' : '#353535' },
                     ]}
                   >
                     {task.category}
@@ -426,14 +371,8 @@ const HomeScreen = () => {
 
           <Text style={styles.sectionTitle}>Today's List</Text>
           <View style={styles.listContainer}>
-            {todos.map((todo, index) => (
-              <View 
-                key={todo.id} 
-                style={[
-                  styles.todoItem,
-                  index === todos.length - 1 && styles.todoItemLast,
-                ]}
-              >
+            {todos.map(todo => (
+              <View key={todo.id} style={styles.todoItem}>
                 <TouchableOpacity
                   onPress={() => toggleTodo(todo)}
                   hitSlop={{ top: 10, bottom: 10, left: 10 }}
@@ -514,7 +453,7 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F2EFE8', marginBottom: 30 },
+  root: { flex: 1, backgroundColor: '#F2EFE8' },
   container: { flex: 1 },
   topInteractiveLayer: { zIndex: 100 },
   dimOverlay: {
@@ -544,21 +483,21 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal: width * 0.12,
-    paddingVertical: width * 0.08,
+    paddingHorizontal: width * 0.08,
+    paddingVertical: width * 0.05,
   },
   closeIconContainer: {
     width: '100%',
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
-    marginBottom: 30,
+    alignItems: 'flex-end', // Fix: Make it align properly per your other close icon
+    marginBottom: width * 0.08,
   },
 
   // Profile Alignment Styles
   profileContainer: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: width * 0.15,
+    marginTop: width * 0.05,
+    marginBottom: width * 0.1,
   },
   profileCircle: {
     width: 100,
@@ -567,225 +506,111 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2EFE8',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    marginBottom: 15,
   },
   profileName: {
     color: '#FFFFFF',
     fontSize: 22,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 8,
   },
 
   // Menu Items Alignment Styles
   menuItems: {
-    width: '100%',
+    width: '80%',
+    alignSelf: 'center',
     alignItems: 'center',
-    gap: width * 0.06,
-    marginBottom: width * 0.2,
+    gap: width * 0.02,
   },
   menuItem: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: width * 0.04,
+    paddingHorizontal: 0,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: 'rgba(242, 239, 232, 0.08)',
   },
   menuText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '500',
     textAlign: 'center',
   },
-  logoutButton: { marginTop: 'auto' },
+  logoutButton: { marginTop: width * 0.05 },
 
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    paddingTop: 12,
+    paddingHorizontal: 25,
+    marginTop: 20,
   },
-  greeting: { 
-    fontSize: 28, 
-    fontWeight: '700', 
-    color: '#000000',
-    letterSpacing: -0.5,
-  },
-  
+  greeting: { fontSize: 28, fontWeight: '700', color: '#000000' },
   statsRow: {
     flexDirection: 'row',
-    marginHorizontal: 24,
-    marginTop: 28,
-    marginBottom: 8,
+    marginHorizontal: 20,
+    marginTop: 25,
     gap: 12,
     backgroundColor: '#E9E5DC',
-    borderRadius: 30,
-    height: 115,
+    borderRadius: 28,
+    height: 110,
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
   },
   slidingPill: {
     position: 'absolute',
     width: PILL_WIDTH,
-    height: 115,
+    height: 110,
     backgroundColor: '#262626',
     borderRadius: 28,
   },
-  timeCard: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  timeTextWhite: { 
-    color: '#FFFFFF', 
-    fontSize: 20, 
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  timeTextBlack: { 
-    color: '#000000', 
-    fontSize: 20, 
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  subTextWhite: { 
-    color: '#F2EFE8', 
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 6,
-  },
-  subTextBlack: { 
-    color: '#353535', 
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 6,
-  },
+  timeCard: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  timeTextWhite: { color: '#FFFFFF', fontSize: 22, fontWeight: '600' },
+  timeTextBlack: { color: '#000000', fontSize: 22, fontWeight: '600' },
+  subTextWhite: { color: '#F2EFE8', fontSize: 16 },
+  subTextBlack: { color: '#353535', fontSize: 16 },
 
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
-    paddingHorizontal: 24,
-    marginTop: 32,
-    marginBottom: 16,
-    color: '#000000',
-    letterSpacing: -0.5,
+    paddingHorizontal: 25,
+    marginTop: 35,
   },
-  
   bigThreeRow: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    marginBottom: 28,
-    gap: 14,
+    paddingHorizontal: 20,
+    marginTop: 15,
+    gap: 10,
   },
   bigThreeCard: {
     flex: 1,
     borderRadius: 24,
-    padding: 18,
-    height: 140,
+    padding: 15,
+    height: 135,
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  activeBigThree: { 
-    backgroundColor: '#262626', 
-    height: 160,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    elevation: 5,
-  },
-  inactiveBigThree: { 
-    backgroundColor: '#E9E5DC' 
-  },
-  bigThreeTitle: { 
-    fontSize: 16, 
-    fontWeight: '700',
-    color: '#000000',
-  },
-  activeBigThreeTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  bigThreeCategory: { 
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#353535',
-    marginTop: 4,
-  },
-  activeBigThreeCategory: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#F2EFE8',
-    marginTop: 4,
-  },
-  actionIcons: { 
-    flexDirection: 'row', 
-    gap: 12, 
-    marginTop: 10,
-  },
+  activeBigThree: { backgroundColor: '#262626', height: 170 },
+  inactiveBigThree: { backgroundColor: '#E9E5DC' },
+  bigThreeTitle: { fontSize: 15, fontWeight: '700' },
+  bigThreeCategory: { fontSize: 13 },
+  actionIcons: { flexDirection: 'row', gap: 15, marginTop: 5 },
 
   listContainer: {
     backgroundColor: '#E9E5DC',
-    marginHorizontal: 24,
-    marginBottom: 24,
+    marginHorizontal: 20,
+    marginTop: 15,
     borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    padding: 22,
   },
-  
-  todoItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
-  },
-  todoItemLast: {
-    marginBottom: 0,
-    paddingBottom: 0,
-    borderBottomWidth: 0,
-  },
+  todoItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   todoCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2.5,
     borderColor: '#262626',
     marginRight: 16,
-    backgroundColor: '#FFFFFF',
   },
-  todoCircleCompleted: { 
-    backgroundColor: '#262626',
-    borderColor: '#262626',
-  },
-  todoText: { 
-    fontSize: 17, 
-    fontWeight: '500', 
-    color: '#262626',
-    flex: 1,
-  },
+  todoCircleCompleted: { backgroundColor: '#262626' },
+  todoText: { fontSize: 18, fontWeight: '500', color: '#262626' },
   todoTextCompleted: {
     textDecorationLine: 'line-through',
     color: '#353535',

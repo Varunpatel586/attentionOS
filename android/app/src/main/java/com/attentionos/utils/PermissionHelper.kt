@@ -2,19 +2,28 @@ package com.attentionos.utils
 
 import android.app.AlertDialog
 import android.app.AppOpsManager
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import android.text.TextUtils
-import android.util.Log
 import androidx.core.content.ContextCompat
 
 /**
  * Utility class for checking and requesting permissions required by AttentionOS.
  * Handles both standard and special permissions (Usage Stats, Accessibility).
+ * Shows native dialogs to request permissions from the user.
  */
 object PermissionHelper {
+
+    private fun runOnUiThread(activity: Activity, block: () -> Unit) {
+        if (activity.isFinishing) return
+        activity.runOnUiThread {
+            if (activity.isFinishing) return@runOnUiThread
+            block()
+        }
+    }
 
     /**
      * Check if the app has Usage Stats permission (PACKAGE_USAGE_STATS).
@@ -100,97 +109,78 @@ object PermissionHelper {
     }
 
     /**
-     * Show a dialog to request Usage Stats permission.
+     * Show a dialog requesting Accessibility permission.
+     * The dialog allows the user to directly open accessibility settings.
      */
-    fun requestUsageStatsPermissionDialog(context: Context) {
-        AlertDialog.Builder(context)
-            .setTitle("Usage Stats Permission Required")
-            .setMessage("AttentionOS needs access to your app usage data to track distracted scrolling.\n\nYou'll be taken to Settings to enable this permission.")
-            .setPositiveButton("Open Settings") { _, _ ->
-                openUsageStatsSettings(context)
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    /**
-     * Show a dialog to request Accessibility permission.
-     */
-    fun requestAccessibilityPermissionDialog(context: Context) {
-        AlertDialog.Builder(context)
-            .setTitle("Accessibility Permission Required")
-            .setMessage("AttentionOS needs Accessibility permission to detect scroll events.\n\nYou'll be taken to Settings to enable this permission.")
-            .setPositiveButton("Open Settings") { _, _ ->
-                openAccessibilitySettings(context)
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    /**
-     * Show a dialog requesting all missing permissions.
-     * Returns true if any permission was missing and dialog was shown.
-     */
-    fun requestAllMissingPermissionsDialog(context: Context): Boolean {
-        // Validate context
-        if (context == null) {
-            Log.w("PermissionHelper", "Cannot show dialog: context is null")
-            return false
-        }
-        
-        val missingPermissions = mutableListOf<Pair<String, () -> Unit>>()
-        
-        if (!hasUsageStatsPermission(context)) {
-            missingPermissions.add("Usage Stats" to { openUsageStatsSettings(context) })
-        }
-        if (!hasAccessibilityPermission(context, "com.attentionos.accessibility.ScrollDetectionAccessibilityService")) {
-            missingPermissions.add("Accessibility" to { openAccessibilitySettings(context) })
-        }
-        if (!hasNotificationPermission(context)) {
-            missingPermissions.add("Notifications" to { openNotificationSettings(context) })
-        }
-
-        if (missingPermissions.isEmpty()) {
-            return false // All permissions granted
-        }
-
-        val permissionNames = missingPermissions.map { it.first }
-        val message = buildString {
-            appendLine("AttentionOS needs the following permissions to work properly:\n")
-            permissionNames.forEach { perm ->
-                appendLine("• $perm")
-            }
-            appendLine("\nYou'll be taken to Settings to enable these permissions.")
-        }
-
-        try {
-            AlertDialog.Builder(context)
-                .setTitle("Permissions Required")
-                .setMessage(message)
-                .setPositiveButton("Go to Settings") { _, _ ->
-                    // Open first missing permission's settings
-                    if (missingPermissions.isNotEmpty()) {
-                        missingPermissions[0].second.invoke()
-                    }
+    fun showAccessibilityPermissionDialog(activity: Activity) {
+        runOnUiThread(activity) {
+            AlertDialog.Builder(activity)
+                .setTitle("Enable Tracking")
+                .setMessage(
+                    "AttentionOS needs Accessibility Service permission to detect scrolling behavior in apps like Instagram and YouTube.\n\n" +
+                    "We do NOT read your messages, posts, or any personal content. We ONLY detect scroll events.\n\n" +
+                    "Please enable 'AttentionOS' in Accessibility Settings to continue."
+                )
+                .setPositiveButton("Open Settings") { _, _ ->
+                    openAccessibilitySettings(activity)
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setIcon(android.R.drawable.ic_dialog_info)
                 .show()
-        } catch (e: Exception) {
-            Log.e("PermissionHelper", "Error showing permission dialog", e)
-            return false
         }
-
-        return true // Dialog was shown
     }
 
     /**
-     * Open the notification settings page.
+     * Show a dialog requesting Usage Stats permission.
+     * The dialog allows the user to directly open usage stats settings.
      */
-    fun openNotificationSettings(context: Context) {
-        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+    fun showUsageStatsPermissionDialog(activity: Activity) {
+        runOnUiThread(activity) {
+            AlertDialog.Builder(activity)
+                .setTitle("Enable Usage Stats Access")
+                .setMessage(
+                    "AttentionOS needs access to usage stats to detect which app is currently open. " +
+                    "This is required for tracking distracted scrolling.\n\n" +
+                    "Please grant 'AttentionOS' permission to access usage stats."
+                )
+                .setPositiveButton("Open Settings") { _, _ ->
+                    openUsageStatsSettings(activity)
+                }
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show()
         }
-        context.startActivity(intent)
+    }
+
+    /**
+     * Show a dialog requesting both Usage Stats and Accessibility permissions.
+     * The dialog allows the user to choose which permission to grant first.
+     */
+    fun showBothPermissionsDialog(activity: Activity) {
+        runOnUiThread(activity) {
+            AlertDialog.Builder(activity)
+                .setTitle("Permissions Required")
+                .setMessage(
+                    "AttentionOS requires two permissions to track distracted scrolling:\n\n" +
+                    "1. Accessibility Service - to detect scrolling behavior\n" +
+                    "2. Usage Stats - to identify which app is open\n\n" +
+                    "Which would you like to enable first?"
+                )
+                .setPositiveButton("Accessibility") { _, _ ->
+                    openAccessibilitySettings(activity)
+                }
+                .setNeutralButton("Usage Stats") { _, _ ->
+                    openUsageStatsSettings(activity)
+                }
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show()
+        }
     }
 }

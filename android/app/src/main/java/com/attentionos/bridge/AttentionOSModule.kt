@@ -1,8 +1,6 @@
 package com.attentionos.bridge
 
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import com.attentionos.database.AppDatabase
 import com.attentionos.repository.SessionRepository
@@ -39,12 +37,42 @@ class AttentionOSModule(reactContext: ReactApplicationContext) : ReactContextBas
 
     /**
      * Start the tracking service.
+     * Checks for required permissions (Accessibility and Usage Stats) before starting.
+     * If permissions are missing, shows an appropriate dialog to the user.
      */
     @ReactMethod
     fun startTracking() {
         Log.i(TAG, "startTracking called from React Native")
         reactApplicationContext.currentActivity?.let { activity ->
-            TrackingForegroundService.start(activity)
+            // Check if required permissions are granted
+            val hasAccessibility = PermissionHelper.hasAccessibilityPermission(
+                activity,
+                "com.attentionos.accessibility.ScrollDetectionAccessibilityService"
+            )
+            val hasUsageStats = PermissionHelper.hasUsageStatsPermission(activity)
+
+            when {
+                !hasAccessibility && !hasUsageStats -> {
+                    // Both permissions missing
+                    Log.w(TAG, "Both Accessibility and Usage Stats permissions missing")
+                    PermissionHelper.showBothPermissionsDialog(activity)
+                }
+                !hasAccessibility -> {
+                    // Only accessibility permission missing
+                    Log.w(TAG, "Accessibility permission missing")
+                    PermissionHelper.showAccessibilityPermissionDialog(activity)
+                }
+                !hasUsageStats -> {
+                    // Only usage stats permission missing
+                    Log.w(TAG, "Usage Stats permission missing")
+                    PermissionHelper.showUsageStatsPermissionDialog(activity)
+                }
+                else -> {
+                    // All permissions granted - start tracking
+                    Log.i(TAG, "All permissions granted - starting tracking service")
+                    TrackingForegroundService.start(activity)
+                }
+            }
         } ?: run {
             Log.e(TAG, "Cannot start tracking: no current activity")
         }
@@ -189,38 +217,6 @@ class AttentionOSModule(reactContext: ReactApplicationContext) : ReactContextBas
         } catch (e: Exception) {
             Log.e(TAG, "Error checking service status", e)
             promise.reject("ERROR", "Failed to check service status: ${e.message}")
-        }
-    }
-
-    /**
-     * Request all missing permissions with dialogs.
-     * This will show dialogs for any permissions that are not yet granted.
-     * @param promise Resolves with true if any permission request dialog was shown, false if all permissions are already granted
-     */
-    @ReactMethod
-    fun requestAllPermissions(promise: Promise) {
-        Log.i(TAG, "requestAllPermissions called")
-        try {
-            val activity = reactApplicationContext.currentActivity
-            if (activity == null) {
-                Log.e(TAG, "Cannot show permission dialogs: current activity is null")
-                promise.reject("ERROR", "Activity not available for showing permission dialogs")
-                return
-            }
-            
-            // Post to main thread to ensure dialog is shown properly
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    val needsPermissions = PermissionHelper.requestAllMissingPermissionsDialog(activity)
-                    promise.resolve(needsPermissions)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error showing permission dialogs", e)
-                    promise.reject("ERROR", "Failed to request permissions: ${e.message}")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error requesting permissions", e)
-            promise.reject("ERROR", "Failed to request permissions: ${e.message}")
         }
     }
 

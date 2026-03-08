@@ -1,5 +1,4 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     package="com.attentionos">
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -12,9 +11,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
     <!-- Required for usage stats (special permission, requires user to grant in Settings) -->
-    <uses-permission
-        android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     
     <!-- Required for floating overlay bubble -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -62,6 +59,80 @@
               android:name="android.accessibilityservice"
               android:resource="@xml/accessibility_service_config" />
       </service>
+
+      <!-- Widget Update Service -->
+      <service
+          android:name=".service.WidgetUpdateService"
+          android:enabled="true"
+          android:exported="false" />
+
+      <!-- Notification action receiver to stop tracking -->
+      <receiver
+          android:name=".receiver.StopTrackingReceiver"
+          android:enabled="true"
+          android:exported="false" />
+
+      <!-- Focus Scroll Widget -->
+      <receiver android:name=".widgets.FocusScrollWidgetProvider"
+          android:enabled="true"
+          android:exported="true">
+          <intent-filter>
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+              <action android:name="com.attentionos.UPDATE_FOCUS_SCROLL_WIDGET" />
+          </intent-filter>
+          <meta-data
+              android:name="android.appwidget.provider"
+              android:resource="@xml/widget_focus_scroll_info" />
+      </receiver>
+
+      <!-- Tasks Widget -->
+      <receiver android:name=".widgets.TasksWidgetProvider"
+          android:enabled="true"
+          android:exported="true">
+          <intent-filter>
+              <action android:name="com.attentionos.UPDATE_TASKS_WIDGET" />
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+          <meta-data
+              android:name="android.appwidget.provider"
+              android:resource="@xml/widget_tasks_info" />
+      </receiver>
+
+      <!-- Timer Widget -->
+      <receiver android:name=".widgets.TimerWidgetProvider"
+          android:enabled="true"
+          android:exported="true">
+          <intent-filter>
+              <action android:name="com.attentionos.UPDATE_TIMER_WIDGET" />
+              <action android:name="com.attentionos.TIMER_PAUSE" />
+              <action android:name="com.attentionos.TIMER_RESUME" />
+              <action android:name="com.attentionos.TIMER_RESET" />
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+          <meta-data
+              android:name="android.appwidget.provider"
+              android:resource="@xml/widget_timer_info" />
+      </receiver>
+
+      <!-- Timer Control Receiver -->
+      <receiver android:name=".receiver.TimerControlReceiver"
+          android:enabled="true"
+          android:exported="false">
+          <intent-filter>
+              <action android:name="com.attentionos.TIMER_PAUSE" />
+              <action android:name="com.attentionos.TIMER_RESUME" />
+              <action android:name="com.attentionos.TIMER_RESET" />
+          </intent-filter>
+      </receiver>
+
+      <!-- Timer Event Receiver for React Native -->
+      <receiver android:name=".receiver.TimerEventReceiver"
+          android:enabled="true"
+          android:exported="false">
+          <intent-filter>
+              <action android:name="com.attentionos.TIMER_EVENT" />
+          </intent-filter>
+      </receiver>
 
     </application>
 </manifest>

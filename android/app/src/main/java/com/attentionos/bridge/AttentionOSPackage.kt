@@ -14,7 +14,8 @@ class AttentionOSPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
         return listOf(
             AttentionOSModule(reactContext),
-            OverlayModule(reactContext)
+            OverlayModule(reactContext),
+            WidgetBridgeModule(reactContext)
         )
     }
 

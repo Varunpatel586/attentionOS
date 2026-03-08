@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, DeviceEventEmitter } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 
@@ -51,9 +51,7 @@ const BottomNavbar = props => {
       {/* Floating action button */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => {
-          DeviceEventEmitter.emit('openTaskModalAddMode');
-        }}
+        onPress={() => navigation.navigate('ToDoEdit')}
       >
         <Ionicons name="create-outline" size={22} color="#FFF" />
       </TouchableOpacity>

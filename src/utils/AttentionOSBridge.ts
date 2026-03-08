@@ -73,15 +73,6 @@ class AttentionOSBridge {
   }
 
   /**
-   * Request all missing permissions with dialogs.
-   * Shows permission request dialogs for any permissions not yet granted.
-   * @returns Promise resolving to true if any permission request dialog was shown, false if all permissions are already granted
-   */
-  async requestAllPermissions(): Promise<boolean> {
-    return await AttentionOSModule.requestAllPermissions();
-  }
-
-  /**
    * Check if the tracking service is currently running.
    * @returns Promise resolving to true if service is running, false otherwise
    */
